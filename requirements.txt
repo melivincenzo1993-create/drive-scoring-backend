@@ -1,7 +1,0 @@
-fastapi
-uvicorn
-sqlalchemy
-pydantic
-weasyprint
-psycopg-binary
-xhtml2pdf
