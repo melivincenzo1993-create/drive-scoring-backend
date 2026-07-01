@@ -4,3 +4,4 @@ sqlalchemy
 pydantic
 weasyprint
 psycopg-binary
+xhtml2pdf
