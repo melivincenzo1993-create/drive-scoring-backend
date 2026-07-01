@@ -72,6 +72,12 @@ def home():
 # 1. ENDPOINT PRIVATO
 # ==========================================
 @app.post("/score/privato")
-def score_privato(dati: schemas.PrivatoRequest, db: Session = Depends(get_db)):
-    payload = dati.model_dump()
-    # Continua qui il resto del tuo codice originale per gestire l'endpoint privato...
+def score_privato(dati: schemas.PrivatoRequest):
+    # 1. Importiamo la funzione dal file engine
+    from engine import calcola_score_privato
+    
+    # 2. Eseguiamo il calcolo matematico dello score finanziario
+    risultato_scoring = calcola_score_privato(dati)
+    
+    # 3. Restituiamo direttamente la risposta al frontend senza toccare il database
+    return risultato_scoring
