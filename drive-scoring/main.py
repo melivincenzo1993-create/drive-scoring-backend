@@ -1,6 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
-from datetime import date
+from datetime import datetime, date
 from typing import Literal, Optional
 import io
 import math
@@ -107,7 +107,7 @@ def home():
                 margin-bottom: 40px; 
             }}
             
-            /* Step Progress Bar Accattivante */
+            /* Step Progress Bar */
             .steps-indicator {{ 
                 display: flex; 
                 justify-content: space-between; 
@@ -187,7 +187,6 @@ def home():
                 box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1); 
             }}
             
-            /* Pulsanti con micro-interazioni */
             .btn-container {{ display: flex; justify-content: space-between; margin-top: 35px; gap: 16px; }}
             .btn {{ 
                 background-color: var(--primary); 
@@ -207,20 +206,14 @@ def home():
                 transform: translateY(-1px);
                 box-shadow: 0 6px 20px rgba(16, 185, 129, 0.15);
             }}
-            .btn:active {{ transform: translateY(1px); }}
             
             .btn-secondary {{ 
                 background-color: #fff; 
                 color: #475569; 
                 border: 1px solid var(--border-color); 
-                box-shadow: none;
             }}
             .btn-secondary:hover {{ 
                 background-color: #f8fafc; 
-                color: var(--text-main);
-                border-color: #cbd5e1;
-                box-shadow: none;
-                transform: none;
             }}
             
             .gdpr-box {{ 
@@ -230,11 +223,9 @@ def home():
                 margin-top: 20px; 
                 font-size: 13px; 
                 color: var(--text-muted); 
-                line-height: 1.5;
             }}
-            .gdpr-box input {{ margin-top: 3px; width: 16px; height: 16px; accent-color: var(--primary); }}
+            .gdpr-box input {{ margin-top: 3px; width: 16px; height: 16px; }}
             
-            /* Box Valore Aggiunto Commerciale */
             .value-propositions {{
                 margin-top: 40px;
                 padding-top: 30px;
@@ -250,7 +241,6 @@ def home():
                 align-items: center;
                 gap: 8px;
             }}
-            .prop-item strong {{ color: var(--text-main); }}
         </style>
     </head>
     <body>
@@ -267,7 +257,7 @@ def home():
             <form action="/score/premium" method="POST" enctype="multipart/form-data" id="scoring-form">
                 
                 <div class="form-step active" id="step-1">
-                    <div class="form-group" style="display: flex; flex-direction: row; gap: 16px; margin-bottom: 0;">
+                    <div style="display: flex; gap: 16px; margin-bottom: 0;">
                         <div class="form-group" style="flex: 1;">
                             <label>Nome</label>
                             <input type="text" name="first_name" required placeholder="Es. Mario">
@@ -304,8 +294,8 @@ def home():
                         <input type="number" step="0.01" name="net_monthly_income" required placeholder="Es. 2200">
                     </div>
                     <div class="form-group">
-                        <label id="doc-label">Carica Documento di Reddito (Scansione OCR)</label>
-                        <input type="file" name="documento_reddito" accept=".pdf, .png, .jpg, .jpeg" required style="padding: 8px 0; font-size: 14px;">
+                        <label>Carica Documento di Reddito (Scansione OCR)</label>
+                        <input type="file" name="documento_reddito" accept=".pdf, .png, .jpg, .jpeg" required style="padding: 8px 0;">
                     </div>
                     
                     <div id="wrapper-piva" style="display:none;" class="form-group">
@@ -357,33 +347,21 @@ def home():
 
                     <div class="gdpr-box">
                         <input type="checkbox" id="gdpr" required>
-                        <label for="gdpr">Acconsento al trattamento dei dati economico-personali ai fini del calcolo dello score secondo la normativa GDPR UE 2016/679.</label>
+                        <label for="gdpr">Acconsento al trattamento dei dati secondo la normativa GDPR.</label>
                     </div>
 
                     <div class="btn-container">
                         <button type="button" class="btn btn-secondary" onclick="prevStep(2)">Indietro</button>
-                        <button type="submit" class="btn" style="background-color: #0f172a; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);">Paga ed Elabora PDF</button>
+                        <button type="submit" class="btn" style="background-color: #0f172a;">Paga ed Elabora PDF</button>
                     </div>
                 </div>
             </form>
 
             <div class="value-propositions">
-                <div class="prop-item">
-                    <span style="color: var(--primary);">✦</span>
-                    <span><strong>Report PDF</strong> ufficiale incluso</span>
-                </div>
-                <div class="prop-item">
-                    <span style="color: var(--primary);">✦</span>
-                    <span>Verifica <strong>OCR antifrode</strong></span>
-                </div>
-                <div class="prop-item">
-                    <span style="color: var(--primary);">✦</span>
-                    <span>Crittografia <strong>GDPR 100%</strong></span>
-                </div>
-                <div class="prop-item">
-                    <span style="color: var(--primary);">✦</span>
-                    <span>Algoritmo <strong>FinTech</strong> istantaneo</span>
-                </div>
+                <div class="prop-item">✦ <strong>Report PDF</strong> incluso</div>
+                <div class="prop-item">✦ Verifica <strong>OCR</strong></div>
+                <div class="prop-item">✦ Crittografia <strong>GDPR</strong></div>
+                <div class="prop-item">✦ Esito <strong>Istantaneo</strong></div>
             </div>
         </div>
 
@@ -444,34 +422,39 @@ async def score_premium(
     contract_duration_months: int = Form(...),
     estimated_monthly_rate: float = Form(...),
     current_monthly_debts: float = Form(...),
-    has_credit_issues: bool = Form(...),
-    birth_date: date = Form(...),
+    has_credit_issues: str = Form(...),       # Ricevuto come stringa dal form multipart
+    birth_date: str = Form(...),              # Ricevuto come stringa dal form multipart
     net_monthly_income: float = Form(...),
     contract_type: Optional[str] = Form(None),
     piva_start_year: Optional[int] = Form(None),
     documento_reddito: UploadFile = File(...)
 ):
-    # 1. LOG CONFORMITÀ GDPR
-    email_hash = f"***@{user_email.split('@')[-1]}" if "@" in user_email else "Privacy-Hidden"
-    logger.info(f"[GDPR COMPLIANT] Analisi Rigida Pay-Per-Use per utente: {email_hash}")
+    # Safe type parsing per impedire i crash di FastAPI
+    is_credit_compromised = (has_credit_issues.lower() == "true")
+    
+    try:
+        parsed_birth_date = datetime.strptime(birth_date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Formato Data di Nascita non valido. Usa AAAA-MM-GG.")
 
-    ocr_log_status = "Verificato tramite OCR algoritmo integrato"
+    email_hash = f"***@{user_email.split('@')[-1]}" if "@" in user_email else "Privacy-Hidden"
+    logger.info(f"[GDPR] Analisi per utente: {email_hash}")
 
     # =========================================================================
-    # 2. ALGORITMO DI SCORING AD ALTISSIMA RIGIDITÀ BANCARIA
+    # ALGORITMO DI SCORING
     # =========================================================================
     punteggio = 100
     motivi = []
     forzato_rifiuto = False
     
     oggi = date.today()
-    eta_richiedente = oggi.year - birth_date.year - ((oggi.month, oggi.day) < (birth_date.month, birth_date.day))
+    eta_richiedente = oggi.year - parsed_birth_date.year - ((oggi.month, oggi.day) < (parsed_birth_date.month, parsed_birth_date.day))
     eta_a_fine_contratto = eta_richiedente + (contract_duration_months / 12)
     
     totale_impegni_mensili = estimated_monthly_rate + current_monthly_debts
     rapporto_indebitamento = (totale_impegni_mensili / net_monthly_income) if net_monthly_income > 0 else 1.0
 
-    if has_credit_issues:
+    if is_credit_compromised:
         punteggio = 0
         forzato_rifiuto = True
         motivi.append("Presenza di segnalazioni pregiudizievoli o negatività in Banche Dati (CRIF).")
@@ -511,7 +494,7 @@ async def score_premium(
         esito = "DA VERIFICARE"
 
     # =========================================================================
-    # 3. GENERAZIONE PDF CON INTERFACCIA PREMIUM EDITORIALE MINIMAL + LOGO
+    # GENERAZIONE PDF
     # =========================================================================
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -538,7 +521,7 @@ async def score_premium(
         c_status = colors.HexColor("#dc2626")     
         c_status_bg = colors.HexColor("#fef2f2")  
         
-    style_main_title = ParagraphStyle('DocTitle', fontName='Helvetica-Bold', fontSize=20, textColor=c_dark, spaceAfter=2)
+    styles = getSampleStyleSheet()
     style_meta_right = ParagraphStyle('DocMeta', fontName='Helvetica', fontSize=9, textColor=c_muted, alignment=2, leading=13)
     style_section_title = ParagraphStyle('SecTitle', fontName='Helvetica-Bold', fontSize=11, textColor=c_dark, spaceBefore=25, spaceAfter=8)
     style_cell_label = ParagraphStyle('CellLabel', fontName='Helvetica', fontSize=9.5, textColor=c_muted)
@@ -549,7 +532,6 @@ async def score_premium(
     style_evidence = ParagraphStyle('EvidenceText', fontName='Helvetica', fontSize=9.5, textColor=c_text, leading=14)
     style_legal = ParagraphStyle('LegalText', fontName='Helvetica-Oblique', fontSize=7.5, textColor=c_muted, leading=11)
 
-    # Gestione Fallback del Logo
     logo_path = "logo.png"
     if os.path.exists(logo_path):
         logo_element = Image(logo_path, width=110, height=35)
@@ -557,7 +539,6 @@ async def score_premium(
     else:
         logo_element = Paragraph("<b>DRIVE</b>SCORING", ParagraphStyle('FbLogo', fontName='Helvetica-Bold', fontSize=18, textColor=c_dark))
 
-    # Blocco 1: Intestazione Istituzionale Bilanciata con Logo
     header_data = [
         [
             logo_element,
@@ -574,7 +555,6 @@ async def score_premium(
     story.append(header_table)
     story.append(Spacer(1, 15))
     
-    # Blocco 2: Pannello Risultato Finanziario
     badge_data = [
         [
             [Paragraph("ESITO CRITERIO RESTRETTO", style_badge_title), Paragraph(esito, style_badge_val)],
@@ -591,21 +571,18 @@ async def score_premium(
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
     ]))
     story.append(badge_table)
-    
-    # 2.1 COSTRUZIONE DEI COMPONENTI GRAFICI NATIVI (FALLBACK)
     story.append(Spacer(1, 15))
     
-    # 1. DISEGNO PROGRESS BAR PUNTEGGIO
+    # 1. PROGRESS BAR PUNTEGGI
     d_score = Drawing(520, 20)
     d_score.add(Rect(0, 4, 520, 10, fillColor=colors.HexColor("#e2e8f0"), strokeColor=None, rx=5, ry=5))
     width_score_bar = (punteggio_finale / 100.0) * 520
     if width_score_bar > 0:
         d_score.add(Rect(0, 4, width_score_bar, 10, fillColor=c_status, strokeColor=None, rx=5, ry=5))
     story.append(d_score)
-    
     story.append(Spacer(1, 5))
 
-    # 2. DISEGNO GRAFICO DI SOGLIA RAPPORTO DEBITO (DTI METER)
+    # 2. DTI GRAPHIC METER
     story.append(Paragraph("SITUAZIONE INDEBITAMENTO (DTI RETAIL METER)", style_badge_title))
     d_dti = Drawing(520, 30)
     d_dti.add(Rect(0, 12, 520, 8, fillColor=colors.HexColor("#f1f5f9"), strokeColor=colors.HexColor("#cbd5e1"), strokeWidth=0.5))
@@ -621,7 +598,6 @@ async def score_premium(
     d_dti.add(Rect(pos_cliente - 4, 10, 8, 12, fillColor=c_dark, strokeColor=colors.white, strokeWidth=1))
     story.append(d_dti)
     
-    # Blocco 3: Parametri analizzati ed Indicatori di Sostenibilità
     story.append(Paragraph("METRICHE RESTRITTIVE DI AFFIDABILITÀ", style_section_title))
     
     tech_data = [
@@ -642,7 +618,6 @@ async def score_premium(
     ]))
     story.append(tech_table)
     
-    # Blocco 4: Evidenze e Note di Rischio Estese
     story.append(Paragraph("EVIDENZE RILEVATE DALL'ALGORITMO", style_section_title))
     evidence_rows = []
     
@@ -650,7 +625,7 @@ async def score_premium(
         for m in motivi:
             evidence_rows.append([Paragraph(f"<font color='{c_status.hexval()}'>■</font> {m}", style_evidence)])
     else:
-        evidence_rows.append([Paragraph(f"<font color='{c_status.hexval()}'>■</font> <b>Nessuna criticità rilevata.</b> Il profilo del richiedente supera tutti i filtri di controllo e le soglie di rischio bancario impostate.", style_evidence)])
+        evidence_rows.append([Paragraph(f"<font color='{c_status.hexval()}'>■</font> <b>Nessuna criticità rilevata.</b> Il profilo supera i filtri di controllo.", style_evidence)])
         
     evidence_table = Table(evidence_rows, colWidths=[520])
     evidence_table.setStyle(TableStyle([
@@ -660,7 +635,6 @@ async def score_premium(
     ]))
     story.append(evidence_table)
     
-    # Blocco 5: Footer Legale
     story.append(Spacer(1, 35))
     story.append(Paragraph(f"<b>Trasparenza & Nota Legale:</b> {DISCLAIMER_TEXT}", style_legal))
     
