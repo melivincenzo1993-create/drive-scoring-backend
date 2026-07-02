@@ -1,611 +1,66 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, StreamingResponse
-from datetime import datetime, date
-from typing import Literal, Optional
+from fastapi import FastAPI, Form, File, UploadFile, HTTPException
+from fastapi.responses import StreamingResponse
+from weasyprint import HTML
 import io
-import math
-import logging
-import os
+from datetime import date
 
-# Import per la generazione del PDF ad Alto Impatto Grafico
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
+app = FastAPI()
 
-# Import per i componenti Grafici Nativi del PDF (Fallback Grafico)
-from reportlab.graphics.shapes import Drawing, Rect, String, Line, Group
-
-# Configurazione Log di Sicurezza (GDPR Compliant)
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("DriveScoringPremium")
-
-app = FastAPI(
-    title="Drive Scoring API - Premium Edition",
-    version="2.0.0"
-)
-
-DISCLAIMER_TEXT = (
-    "ATTENZIONE: Il risultato ottenuto ha un valore puramente indicativo e non garantisce in alcun modo "
-    "l'approvazione del finanziamento o del contratto. Questo strumento funge esclusivamente da pre-scoring "
-    "per valutare preliminarmente il profilo finanziario del richiedente secondo rigidi parametri di sostenibilità bancaria."
-)
-
-# Funzione per disegnare lo sfondo premium della pagina (Canvas Layer)
-def draw_premium_decorations(canvas, doc):
-    canvas.saveState()
-    # Sfondo soft grigio chiaro per l'intera pagina per dare un look editoriale
-    canvas.setFillColor(colors.HexColor("#f8fafc"))
-    canvas.rect(0, 0, 612, 792, fill=True, stroke=False)
+@app.post("/score/premium")
+async def generate_pdf(
+    first_name: str = Form(...),
+    last_name: str = Form(...),
+    # ... (tutti gli altri campi)
+):
+    # 1. Logica di calcolo (es. punteggio = 40)
+    # ...
     
-    # Barra superiore di accento minimalista color Slate Scuro
-    canvas.setFillColor(colors.HexColor("#0f172a"))
-    canvas.rect(0, 780, 612, 12, fill=True, stroke=False)
-    
-    # Linea decorativa geometrica laterale sul margine sinistro
-    canvas.setStrokeColor(colors.HexColor("#cbd5e1"))
-    canvas.setLineWidth(0.75)
-    canvas.line(40, 40, 40, 740)
-    canvas.restoreState()
-
-@app.get("/", response_class=HTMLResponse)
-def home():
-    return f"""
+    # 2. Design HTML/CSS Moderno
+    html_template = f"""
     <!DOCTYPE html>
-    <html lang="it">
+    <html>
     <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Drive Scoring Premium — Analisi Guidata</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
         <style>
-            :root {{
-                --bg-color: #f1f5f9;
-                --card-bg: #ffffff;
-                --text-main: #0f172a;
-                --text-muted: #64748b;
-                --border-color: #e2e8f0;
-                --primary: #10b981;
-                --primary-hover: #059669;
-            }}
-            
-            body {{ 
-                font-family: 'Inter', sans-serif; 
-                background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-                margin: 0; 
-                padding: 60px 20px; 
-                color: var(--text-main);
-                min-height: 100vh;
-                box-sizing: border-box;
-            }}
-            
-            .container {{ 
-                background: var(--card-bg); 
-                max-width: 580px; 
-                margin: 0 auto; 
-                padding: 45px; 
-                border-radius: 24px; 
-                box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.06);
-                border: 1px solid rgba(226, 232, 240, 0.8);
-            }}
-            
-            h1 {{ 
-                text-align: center; 
-                font-size: 28px; 
-                font-weight: 700; 
-                letter-spacing: -0.03em; 
-                margin-bottom: 6px; 
-            }}
-            p.subtitle {{ 
-                text-align: center; 
-                color: var(--text-muted); 
-                font-size: 15px; 
-                margin-top: 0; 
-                margin-bottom: 40px; 
-            }}
-            
-            .steps-indicator {{ 
-                display: flex; 
-                justify-content: space-between; 
-                margin-bottom: 40px; 
-                position: relative; 
-                max-width: 400px;
-                margin-left: auto;
-                margin-right: auto;
-            }}
-            .steps-indicator::before {{ 
-                content: ''; 
-                position: absolute; 
-                top: 16px; 
-                left: 0; 
-                right: 0; 
-                height: 2px; 
-                background: #e2e8f0; 
-                z-index: 1; 
-            }}
-            .step-dot {{ 
-                width: 34px; 
-                height: 34px; 
-                border-radius: 50%; 
-                background: #fff; 
-                border: 2px solid #e2e8f0; 
-                display: flex; 
-                align-items: center; 
-                justify-content: center; 
-                font-size: 14px; 
-                font-weight: 600; 
-                color: var(--text-muted); 
-                z-index: 2; 
-            }}
-            .step-dot.active {{ 
-                border-color: var(--primary); 
-                background: var(--primary); 
-                color: #fff; 
-            }}
-            .step-dot.completed {{ 
-                border-color: var(--primary); 
-                background: #ecfdf5; 
-                color: var(--primary); 
-            }}
-
-            .form-step {{ 
-                display: none; 
-            }}
-            .form-step.active {{ 
-                display: block; 
-            }}
-            
-            .form-group {{ margin-bottom: 24px; display: flex; flex-direction: column; }}
-            label {{ font-weight: 600; margin-bottom: 8px; font-size: 14px; color: #1e293b; }}
-            
-            input[type="text"], input[type="number"], input[type="date"], input[type="email"], select {{ 
-                padding: 14px 16px; 
-                border: 1px solid var(--border-color); 
-                border-radius: 12px; 
-                font-size: 15px; 
-                width: 100%; 
-                box-sizing: border-box; 
-                background-color: #f8fafc;
-            }}
-            
-            .btn-container {{ display: flex; justify-content: space-between; margin-top: 35px; gap: 16px; }}
-            .btn {{ 
-                background-color: var(--primary); 
-                color: white; 
-                padding: 16px; 
-                border: none; 
-                border-radius: 12px; 
-                font-weight: 600; 
-                font-size: 16px; 
-                cursor: pointer; 
-                flex: 1; 
-            }}
-            
-            .btn-secondary {{ 
-                background-color: #fff; 
-                color: #475569; 
-                border: 1px solid var(--border-color); 
-            }}
-            
-            .gdpr-box {{ 
-                display: flex; 
-                align-items: flex-start; 
-                gap: 12px; 
-                margin-top: 20px; 
-                font-size: 13px; 
-                color: var(--text-muted); 
-            }}
-            .gdpr-box input {{ margin-top: 3px; width: 16px; height: 16px; }}
-            
-            .value-propositions {{
-                margin-top: 40px;
-                padding-top: 30px;
-                border-top: 1px solid var(--border-color);
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 16px;
-            }}
-            .prop-item {{
-                font-size: 13px;
-                color: var(--text-muted);
-            }}
+            @page {{ size: A4; margin: 20mm; }}
+            body {{ font-family: 'Helvetica Neue', Arial, sans-serif; color: #1e293b; }}
+            .header {{ border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 20px; }}
+            .brand {{ font-size: 24pt; font-weight: bold; color: #0f172a; }}
+            .card {{ border: 1px solid #e2e8f0; padding: 20px; border-radius: 8px; background: #f8fafc; }}
+            .status-badge {{ font-size: 18pt; font-weight: bold; color: #dc2626; }}
+            .metric {{ font-size: 28pt; font-weight: bold; }}
+            .table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
+            .table td {{ padding: 12px; border-bottom: 1px solid #e2e8f0; }}
+            .label {{ color: #64748b; }}
         </style>
     </head>
     <body>
-        <div class="container">
-            <h1>Drive Scoring Premium</h1>
-            <p class="subtitle">Verifica affidabilità istantanea (Tariffa: 1 Credit / Pay-per-use)</p>
-            
-            <div class="steps-indicator">
-                <div class="step-dot active" id="dot-1">1</div>
-                <div class="step-dot" id="dot-2">2</div>
-                <div class="step-dot" id="dot-3">3</div>
-            </div>
-
-            <form action="/score/premium" method="POST" enctype="multipart/form-data" id="scoring-form">
-                
-                <div class="form-step active" id="step-1">
-                    <div style="display: flex; gap: 16px; margin-bottom: 0;">
-                        <div class="form-group" style="flex: 1;">
-                            <label>Nome</label>
-                            <input type="text" name="first_name" required placeholder="Es. Mario">
-                        </div>
-                        <div class="form-group" style="flex: 1;">
-                            <label>Cognome</label>
-                            <input type="text" name="last_name" required placeholder="Es. Rossi">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Profilo Richiedente</label>
-                        <select name="target_profile" id="target_profile" onchange="adjustProfileFields()" required>
-                            <option value="privato_dipendente">Privato (Dipendente)</option>
-                            <option value="libero_professionista">Libero professionista / Ditta individuale</option>
-                            <option value="pensionato">Pensionato</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Email per invio Report</label>
-                        <input type="email" name="user_email" required placeholder="cliente@email.com">
-                    </div>
-                    <div class="form-group">
-                        <label>Data di Nascita</label>
-                        <input type="date" name="birth_date" required>
-                    </div>
-                    <div class="btn-container">
-                        <button type="button" class="btn" onclick="nextStep(2)">Avanti</button>
-                    </div>
-                </div>
-
-                <div class="form-step" id="step-2">
-                    <div class="form-group">
-                        <label>Reddito Mensile Netto Medio (€)</label>
-                        <input type="number" step="0.01" name="net_monthly_income" required placeholder="Es. 2200">
-                    </div>
-                    <div class="form-group">
-                        <label>Carica Documento di Reddito (Scansione OCR)</label>
-                        <input type="file" name="documento_reddito" accept=".pdf, .png, .jpg, .jpeg" required style="padding: 8px 0;">
-                    </div>
-                    
-                    <div id="wrapper-piva" style="display:none;" class="form-group">
-                        <label>Anno Apertura Partita IVA</label>
-                        <input type="number" name="piva_start_year" placeholder="Es. 2018">
-                    </div>
-                    <div id="wrapper-dipendente" class="form-group">
-                        <label>Tipo Contratto</label>
-                        <select name="contract_type">
-                            <option value="indeterminato">Tempo Indeterminato</option>
-                            <option value="determinato">Tempo Determinato</option>
-                        </select>
-                    </div>
-
-                    <div class="btn-container">
-                        <button type="button" class="btn btn-secondary" onclick="prevStep(1)">Indietro</button>
-                        <button type="button" class="btn" onclick="nextStep(3)">Avanti</button>
-                    </div>
-                </div>
-
-                <div class="form-step" id="step-3">
-                    <div class="form-group">
-                        <label>Tipologia Prodotto</label>
-                        <select name="product_type" required>
-                            <option value="finanziamento">Finanziamento</option>
-                            <option value="leasing">Leasing</option>
-                            <option value="NLT">NLT (Noleggio a Lungo Termine)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Rata Mensile Stimata (€)</label>
-                        <input type="number" step="0.01" name="estimated_monthly_rate" required placeholder="Es. 350">
-                    </div>
-                    <div class="form-group">
-                        <label>Durata Contratto (Mesi)</label>
-                        <input type="number" name="contract_duration_months" required placeholder="Es. 48">
-                    </div>
-                    <div class="form-group">
-                        <label>Impegni/Rate mensili già attive (€)</label>
-                        <input type="number" step="0.01" name="current_monthly_debts" value="0">
-                    </div>
-                    <div class="form-group">
-                        <label>Segnalazioni pregiudizievoli (CRIF)</label>
-                        <select name="has_credit_issues" required>
-                            <option value="false">Nessuna segnalazione</option>
-                            <option value="true">Sì, presenti segnalazioni</option>
-                        </select>
-                    </div>
-
-                    <div class="gdpr-box">
-                        <input type="checkbox" id="gdpr" required>
-                        <label for="gdpr">Acconsento al trattamento dei dati secondo la normativa GDPR.</label>
-                    </div>
-
-                    <div class="btn-container">
-                        <button type="button" class="btn btn-secondary" onclick="prevStep(2)">Indietro</button>
-                        <button type="submit" class="btn" style="background-color: #0f172a;">Paga ed Elabora PDF</button>
-                    </div>
-                </div>
-            </form>
-
-            <div class="value-propositions">
-                <div class="prop-item">✦ <strong>Report PDF</strong> incluso</div>
-                <div class="prop-item">✦ Verifica <strong>OCR</strong></div>
-                <div class="prop-item">✦ Crittografia <strong>GDPR</strong></div>
-                <div class="prop-item">✦ Esito <strong>Istantaneo</strong></div>
-            </div>
+        <div class="header">
+            <div class="brand">DRIVE SCORING</div>
+            <div style="text-align: right;">Report di Pre-Delibera | {date.today().strftime('%d/%m/%Y')}</div>
+        </div>
+        
+        <div class="card">
+            <div class="status-badge">RIFIUTATO</div>
+            <div style="font-size: 10pt; color: #64748b;">ESITO ANALISI</div>
         </div>
 
-        <script>
-            function nextStep(step) {{
-                if(step === 2) {{
-                    document.getElementById('step-1').classList.remove('active');
-                    document.getElementById('step-2').classList.add('active');
-                    document.getElementById('dot-1').classList.add('completed');
-                    document.getElementById('dot-2').classList.add('active');
-                }}
-                if(step === 3) {{
-                    document.getElementById('step-2').classList.remove('active');
-                    document.getElementById('step-3').classList.add('active');
-                    document.getElementById('dot-2').classList.add('completed');
-                    document.getElementById('dot-3').classList.add('active');
-                }}
-            }}
-            function prevStep(step) {{
-                if(step === 1) {{
-                    document.getElementById('step-2').classList.remove('active');
-                    document.getElementById('step-1').classList.add('active');
-                    document.getElementById('dot-2').classList.remove('active');
-                    document.getElementById('dot-1').classList.remove('completed');
-                }}
-                if(step === 2) {{
-                    document.getElementById('step-3').classList.remove('active');
-                    document.getElementById('step-2').classList.add('active');
-                    document.getElementById('dot-3').classList.remove('active');
-                    document.getElementById('dot-2').classList.remove('completed');
-                }}
-            }}
-            function adjustProfileFields() {{
-                var prof = document.getElementById('target_profile').value;
-                document.getElementById('wrapper-piva').style.display = (prof === 'libero_professionista') ? 'block' : 'none';
-                document.getElementById('wrapper-dipendente').style.display = (prof === 'privato_dipendente') ? 'block' : 'none';
-            }}
-        </script>
+        <table class="table">
+            <tr><td class="label">Richiedente</td><td style="text-align:right;">{last_name.upper()} {first_name.upper()}</td></tr>
+            <tr><td class="label">Indice Solvibilità</td><td style="text-align:right;"><b>40/100</b></td></tr>
+        </table>
+        
+        <p style="font-size: 8pt; color: #94a3b8; margin-top: 50px;">
+            Nota Legale: Risultato indicativo ai sensi delle direttive bancarie.
+        </p>
     </body>
     </html>
     """
 
-@app.post("/score/premium")
-async def score_premium(
-    first_name: str = Form(...),
-    last_name: str = Form(...),
-    user_email: str = Form(...),
-    target_profile: str = Form(...),
-    product_type: str = Form(...),
-    contract_duration_months: int = Form(...),
-    estimated_monthly_rate: float = Form(...),
-    current_monthly_debts: float = Form(...),
-    has_credit_issues: str = Form(...),       
-    birth_date: str = Form(...),              
-    net_monthly_income: float = Form(...),
-    contract_type: Optional[str] = Form(None),
-    piva_start_year: Optional[int] = Form(None),
-    documento_reddito: UploadFile = File(...)
-):
-    is_credit_compromised = (has_credit_issues.lower() == "true")
-    
-    try:
-        parsed_birth_date = datetime.strptime(birth_date, "%Y-%m-%d").date()
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Formato Data di Nascita non valido.")
-
-    email_hash = f"***@{user_email.split('@')[-1]}" if "@" in user_email else "Privacy"
-    logger.info(f"[GDPR] Analisi per utente: {email_hash}")
-
-    # =========================================================================
-    # ALGORITMO DI SCORING
-    # =========================================================================
-    punteggio = 100
-    motivi = []
-    forzato_rifiuto = False
-    
-    oggi = date.today()
-    eta_richiedente = oggi.year - parsed_birth_date.year - ((oggi.month, oggi.day) < (parsed_birth_date.month, parsed_birth_date.day))
-    eta_a_fine_contratto = eta_richiedente + (contract_duration_months / 12)
-    
-    totale_impegni_mensili = estimated_monthly_rate + current_monthly_debts
-    rapporto_indebitamento = (totale_impegni_mensili / net_monthly_income) if net_monthly_income > 0 else 1.0
-
-    if is_credit_compromised:
-        punteggio = 0
-        forzato_rifiuto = True
-        motivi.append("Presenza di segnalazioni pregiudizievoli o negatività in Banche Dati (CRIF).")
-
-    if rapporto_indebitamento > 0.45:
-        punteggio = max(0, punteggio - 60)
-        forzato_rifiuto = True
-        motivi.append(f"Soglia critica DTI superata: l'impegno complessivo ({rapporto_indebitamento*100:.1f}%) supera il limite del 45%.")
-    elif rapporto_indebitamento > 0.30:
-        punteggio -= 25
-        motivi.append(f"Rapporto Rata/Reddito elevato ({rapporto_indebitamento*100:.1f}%). Supera la soglia di allerta del 30%.")
-
-    if net_monthly_income < 1400.0:
-        punteggio -= 20
-        motivi.append(f"Reddito netto ({net_monthly_income:.2f} €) inferiore alla soglia minima prudenziale di sussistenza (1.400 €).")
-
-    if target_profile == "libero_professionista" and piva_start_year:
-        anzianita_piva = oggi.year - piva_start_year
-        if anzianita_piva < 3:
-            punteggio -= 30
-            motivi.append(f"Anzianità Partita IVA insufficiente ({anzianita_piva} anni). Richiesto un minimo di 3 anni.")
-    elif target_profile == "privato_dipendente" and contract_type == "determinato":
-        punteggio -= 25
-        motivi.append("Contratto a tempo determinato. Mancanza di garanzia di continuità reddituale.")
-
-    if eta_a_fine_contratto > 75:
-        punteggio -= 20
-        motivi.append(f"Età a scadenza contratto ({eta_a_fine_contratto:.1f} anni) superiore al limite di 75 anni.")
-
-    punteggio_finale = max(0, min(100, punteggio))
-    
-    if forzato_rifiuto or punteggio_finale < 45:
-        esito = "RIFIUTATO"
-        hex_status_color = "#e11d48" # Rose 600 premium
-        hex_status_bg = "#fff1f2"
-    elif punteggio_finale >= 80:
-        esito = "APPROVATO"
-        hex_status_color = "#059669" # Emerald 600
-        hex_status_bg = "#ecfdf5"
-    else:
-        esito = "DA VERIFICARE"
-        hex_status_color = "#d97706" # Amber 600
-        hex_status_bg = "#fffbeb"
-
-    # =========================================================================
-    # GENERAZIONE PDF RIVISITATA (DESIGN PREMIUM FINALE)
-    # =========================================================================
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buffer, 
-        pagesize=letter, 
-        rightMargin=45, 
-        leftMargin=55, # Più spazio dal margine per bilanciare la linea verticale
-        topMargin=45, 
-        bottomMargin=45
-    )
-    story = []
-    
-    c_dark = colors.HexColor("#0f172a")       
-    c_text = colors.HexColor("#334155")       
-    c_muted = colors.HexColor("#64748b")      
-    c_border = colors.HexColor("#e2e8f0")     
-    c_bg_panel = colors.HexColor("#ffffff") # Bianco puro per le card interne che contrasta con lo sfondo soft
-    c_status = colors.HexColor(hex_status_color)
-    c_status_bg = colors.HexColor(hex_status_bg)
-        
-    styles = getSampleStyleSheet()
-    
-    # Customizzazione Stili per massima pulizia tipografica
-    style_meta_right = ParagraphStyle('DocMeta', parent=styles['Normal'], fontName='Helvetica', fontSize=8.5, textColor=c_muted, alignment=2, leading=14)
-    style_section_title = ParagraphStyle('SecTitle', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=12, textColor=c_dark, spaceBefore=20, spaceAfter=10)
-    style_cell_label = ParagraphStyle('CellLabel', parent=styles['Normal'], fontName='Helvetica', fontSize=9, textColor=c_muted)
-    style_cell_val = ParagraphStyle('CellVal', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9.5, textColor=c_text, alignment=2)
-    style_badge_title = ParagraphStyle('BadgeTitle', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8.5, textColor=c_muted, spaceAfter=6)
-    style_badge_val = ParagraphStyle('BadgeVal', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=18, textColor=c_status)
-    style_score_val = ParagraphStyle('ScoreVal', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=20, textColor=c_dark)
-    style_evidence = ParagraphStyle('EvidenceText', parent=styles['Normal'], fontName='Helvetica', fontSize=9, textColor=c_text, leading=14)
-    style_legal = ParagraphStyle('LegalText', parent=styles['Normal'], fontName='Helvetica', fontSize=7, textColor=c_muted, leading=11)
-
-    logo_element = Paragraph("<font size=16 color='#0f172a'><b>DRIVE</b>SCORING</font>", ParagraphStyle('FbLogo', fontName='Helvetica-Bold'))
-
-    header_data = [
-        [
-            logo_element,
-            Paragraph(f"<b>REPORT ANALISI DI PRE-DELIBERA</b><br/>ID Pratica: <b>DS-{math.prod([oggi.day, oggi.month])}</b><br/>Data Elaborazione: {oggi.strftime('%d/%m/%Y')}", style_meta_right)
-        ]
-    ]
-    header_table = Table(header_data, colWidths=[180, 332])
-    header_table.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('PADDING', (0,0), (-1,-1), 0),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 10),
-        ('LINEBELOW', (0,0), (-1,-1), 1, colors.HexColor("#94a3b8")), 
-    ]))
-    story.append(header_table)
-    story.append(Spacer(1, 20))
-    
-    # Blocco Titolo Principale Esito con Card Arrotondate pulite
-    badge_data = [
-        [
-            [Paragraph("ESITO CRITERIO RESTRITTIVO", style_badge_title), Paragraph(esito, style_badge_val)],
-            [Paragraph("INDICE SOLVIBILITÀ BANCA", style_badge_title), Paragraph(f"{punteggio_finale} <font size=10 color='#94a3b8' fontName='Helvetica'>/ 100</font>", style_score_val)]
-        ]
-    ]
-    badge_table = Table(badge_data, colWidths=[251, 261])
-    badge_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (0,0), c_status_bg), 
-        ('BACKGROUND', (1,0), (1,0), colors.HexColor("#f1f5f9")),  
-        ('BOX', (0,0), (-1,-1), 1, c_border),
-        ('PADDING', (0,0), (-1,-1), 16),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-    ]))
-    story.append(badge_table)
-    story.append(Spacer(1, 15))
-    
-    # 1. PROGRESS BAR PUNTEGGI (Centrata visivamente)
-    d_score = Drawing(512, 14)
-    d_score.add(Rect(0, 2, 512, 8, fillColor=colors.HexColor("#e2e8f0"), strokeColor=None, rx=4, ry=4))
-    width_score_bar = (punteggio_finale / 100.0) * 512
-    if width_score_bar > 0:
-        d_score.add(Rect(0, 2, width_score_bar, 8, fillColor=c_status, strokeColor=None, rx=4, ry=4))
-    story.append(d_score)
-    story.append(Spacer(1, 15))
-
-    # 2. DTI GRAPHIC METER (Grafica allineata e moderna)
-    story.append(Paragraph("DTI RETAIL METER (SOGLIE RESTRITTIVE DI INDEBITAMENTO)", style_badge_title))
-    story.append(Spacer(1, 4))
-    d_dti = Drawing(512, 35)
-    # Sfondo barra DTI
-    d_dti.add(Rect(0, 10, 512, 6, fillColor=colors.HexColor("#e2e8f0"), strokeColor=None, rx=3, ry=3))
-    
-    pos_30 = 0.30 * 512
-    pos_45 = 0.45 * 512
-    # Soglia Allerta 30%
-    d_dti.add(Line(pos_30, 6, pos_30, 20, strokeColor=colors.HexColor("#d97706"), strokeWidth=1.2))
-    d_dti.add(String(pos_30 - 22, 24, "Allerta 30%", fontName="Helvetica-Bold", fontSize=7, fillColor=colors.HexColor("#b45309")))
-    # Soglia Blocco 45%
-    d_dti.add(Line(pos_45, 6, pos_45, 20, strokeColor=colors.HexColor("#dc2626"), strokeWidth=1.2))
-    d_dti.add(String(pos_45 - 20, 24, "Blocco 45%", fontName="Helvetica-Bold", fontSize=7, fillColor=colors.HexColor("#b91c1c")))
-    
-    # Indicatore Cliente (Cursore geometrico pulito)
-    pos_cliente = min(rapporto_indebitamento, 1.0) * 512
-    d_dti.add(Rect(pos_cliente - 3, 6, 6, 14, fillColor=c_dark, strokeColor=colors.white, strokeWidth=1))
-    story.append(d_dti)
-    
-    story.append(Paragraph("METRICHE ANALIZZATE DALL'ISTITUTO", style_section_title))
-    
-    # Tabella Dati Tecnici con allineamento a destra dei valori per massima leggibilità finanziaria
-    tech_data = [
-        [Paragraph("Richiedente (Nome e Cognome)", style_cell_label), Paragraph(f"{last_name.upper()} {first_name.upper()}", style_cell_val)],
-        [Paragraph("Inquadramento Professionale", style_cell_label), Paragraph(target_profile.replace('_',' ').upper(), style_cell_val)],
-        [Paragraph("Rapporto Rata/Reddito Calcolato (DTI)", style_cell_label), Paragraph(f"<b>{rapporto_indebitamento * 100:.1f}%</b>", style_cell_val)],
-        [Paragraph("Reddito Netto Mensile Riscontrato", style_cell_label), Paragraph(f"<b>{net_monthly_income:,.2f} €</b>".replace(",", "."), style_cell_val)],
-        [Paragraph("Certificazione Antifrode Documentale", style_cell_label), Paragraph("<font color='#059669'><b>VERIFICATO (OCR SUPERATO)</b></font>", style_cell_val)]
-    ]
-    tech_table = Table(tech_data, colWidths=[240, 272])
-    tech_table.setStyle(TableStyle([
-        ('PADDING', (0,0), (-1,-1), 10), # Più padding per dare aria alle righe
-        ('BOX', (0,0), (-1,-1), 1, c_border),
-        ('LINEBELOW', (0,0), (-1,-2), 0.5, c_border), 
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('BACKGROUND', (0,0), (-1,-1), c_bg_panel),
-    ]))
-    story.append(tech_table)
-    
-    story.append(Paragraph("EVIDENZE E MOTIVAZIONI COSTRUTTIVE", style_section_title))
-    evidence_rows = []
-    
-    if motivi:
-        for m in motivi:
-            evidence_rows.append([Paragraph(f"<font color='{hex_status_color}'>■</font> {m}", style_evidence)])
-    else:
-        evidence_rows.append([Paragraph("<font color='#059669'>■</font> <b>Nessuna anomalia riscontrata.</b> I requisiti minimi di sostenibilità e affidabilità rientrano pienamente nei parametri algoritmici richiesti.", style_evidence)])
-        
-    evidence_table = Table(evidence_rows, colWidths=[512])
-    evidence_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), c_bg_panel),
-        ('BOX', (0,0), (-1,-1), 1, c_border),
-        ('PADDING', (0,0), (-1,-1), 12),
-    ]))
-    story.append(evidence_table)
-    
-    story.append(Spacer(1, 30))
-    story.append(Paragraph(f"<b>Nota di Trasparenza Legale:</b> {DISCLAIMER_TEXT}", style_legal))
-    
-    doc.build(story, onFirstPage=draw_premium_decorations, onLaterPages=draw_premium_decorations)
-    buffer.seek(0)
+    # 3. Generazione PDF
+    pdf_bytes = HTML(string=html_template).write_pdf()
     
     return StreamingResponse(
-        buffer, 
-        media_type="application/pdf", 
-        headers={"Content-Disposition": f"attachment; filename=Report_Scoring_Premium_{oggi}.pdf"}
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=Report_Premium.pdf"}
     )
