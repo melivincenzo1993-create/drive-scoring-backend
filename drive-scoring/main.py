@@ -250,6 +250,16 @@ def home():
             <form action="/score/premium" method="POST" enctype="multipart/form-data" id="scoring-form">
                 
                 <div class="form-step active" id="step-1">
+                    <div class="form-group" style="display: flex; flex-direction: row; gap: 16px; margin-bottom: 0;">
+                        <div class="form-group" style="flex: 1;">
+                            <label>Nome</label>
+                            <input type="text" name="first_name" required placeholder="Es. Mario">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label>Cognome</label>
+                            <input type="text" name="last_name" required placeholder="Es. Rossi">
+                        </div>
+                    </div>
                     <div class="form-group">
                         <label>Profilo Richiedente</label>
                         <select name="target_profile" id="target_profile" onchange="adjustProfileFields()" required>
@@ -409,6 +419,8 @@ def home():
 
 @app.post("/score/premium")
 async def score_premium(
+    first_name: str = Form(...),
+    last_name: str = Form(...),
     user_email: str = Form(...),
     target_profile: str = Form(...),
     product_type: str = Form(...),
@@ -439,11 +451,10 @@ async def score_premium(
     eta_richiedente = oggi.year - birth_date.year - ((oggi.month, oggi.day) < (birth_date.month, birth_date.day))
     eta_a_fine_contratto = eta_richiedente + (contract_duration_months / 12)
     
-    # Calcolo Rapporto Rata/Reddito (DTI - Debt To Income) complessivo
     totale_impegni_mensili = estimated_monthly_rate + current_monthly_debts
     rapporto_indebitamento = (totale_impegni_mensili / net_monthly_income) if net_monthly_income > 0 else 1.0
 
-    # CRITERIO 1: Pregiudizievoli o Segnalazioni CRIF (Blocco Totale)
+    # CRITERIO 1: Pregiudizievoli o Segnalazioni CRIF
     if has_credit_issues:
         punteggio = 0
         forzato_rifiuto = True
@@ -478,7 +489,6 @@ async def score_premium(
         punteggio -= 20
         motivi.append(f"Età anagrafica stimata a scadenza contratto ({eta_a_fine_contratto:.1f} anni) superiore al limite massimo istituzionale di 75 anni.")
 
-    # Valutazione finale basata sui vincoli restrittivi
     punteggio_finale = max(0, min(100, punteggio))
     
     if forzato_rifiuto or punteggio_finale < 45:
@@ -566,6 +576,7 @@ async def score_premium(
     story.append(Paragraph("METRICHE RESTRITTIVE DI AFFIDABILITÀ", style_section_title))
     
     tech_data = [
+        [Paragraph("Richiedente (Nome e Cognome)", style_cell_label), Paragraph(f"{last_name.upper()} {first_name.upper()}", style_cell_val)],
         [Paragraph("Inquadramento Professionale", style_cell_label), Paragraph(target_profile.replace('_',' ').upper(), style_cell_val)],
         [Paragraph("Rapporto Rata/Reddito Corrente (DTI)", style_cell_label), Paragraph(f"{rapporto_indebitamento * 100:.1f}%", style_cell_val)],
         [Paragraph("Reddito Netto Mensile Analizzato", style_cell_label), Paragraph(f"{net_monthly_income:,.2f} €".replace(",", "."), style_cell_val)],
@@ -578,6 +589,7 @@ async def score_premium(
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('BACKGROUND', (0,0), (-1,0), c_bg_panel),
         ('BACKGROUND', (0,2), (-1,2), c_bg_panel),
+        ('BACKGROUND', (0,4), (-1,4), c_bg_panel),
     ]))
     story.append(tech_table)
     
@@ -589,7 +601,7 @@ async def score_premium(
         for m in motivi:
             evidence_rows.append([Paragraph(f"<font color='{c_status.hexval()}'>■</font> {m}", style_evidence)])
     else:
-        evidence_rows.append([Paragraph(f"<font color='{c_status.hexval()}'>■</font> <b>Nessuna criticità rilevata.</b> Il profilo del richiedente supera brillantemente tutti i filtri di controllo e le soglie di rischio bancario impostate.", style_evidence)])
+        evidence_rows.append([Paragraph(f"<font color='{c_status.hexval()}'>■</font> <b>Nessuna criticità rilevata.</b> Il profilo del richiedente supera tutti i filtri di controllo e le soglie di rischio bancario impostate.", style_evidence)])
         
     evidence_table = Table(evidence_rows, colWidths=[520])
     evidence_table.setStyle(TableStyle([
@@ -600,7 +612,7 @@ async def score_premium(
     story.append(evidence_table)
     
     # Blocco 5: Footer Legale
-    story.append(Spacer(1, 50))
+    story.append(Spacer(1, 40))
     story.append(Paragraph(f"<b>Trasparenza & Nota Legale:</b> {DISCLAIMER_TEXT}", style_legal))
     
     doc.build(story)
