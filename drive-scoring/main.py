@@ -16,70 +16,109 @@ def home():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Drive Scoring - Verifica Solvibilità</title>
+        <title>Drive Scoring - Calcolo Solvibilità</title>
         <style>
-            body { 
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-                background-color: #f4f7f6; 
-                margin: 0; 
-                padding: 0; 
-                display: flex; 
-                justify-content: center; 
-                align-items: center; 
-                min-height: 100vh; 
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; color: #2c3e50; }
+            .container { background: white; max-width: 600px; margin: 30px auto; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+            h1 { text-align: center; color: #2c3e50; margin-bottom: 10px; }
+            p.subtitle { text-align: center; color: #7f8c8d; margin-bottom: 30px; }
+            .form-group { margin-bottom: 20px; display: flex; flex-direction: column; }
+            label { font-weight: 600; margin-bottom: 8px; font-size: 14px; }
+            input[type="text"], input[type="number"], input[type="date"], input[type="email"], select { 
+                padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; width: 100%; box-sizing: border-box;
             }
-            .container { 
-                background: white; 
-                padding: 40px; 
-                border-radius: 12px; 
-                box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
-                text-align: center; 
-                max-width: 500px; 
-                width: 100%; 
-            }
-            h1 { 
-                color: #2c3e50; 
-                margin-bottom: 10px; 
-            }
-            p { 
-                color: #7f8c8d; 
-                font-size: 16px; 
-                margin-bottom: 30px; 
-                line-height: 1.5;
-            }
-            .btn { 
-                display: inline-block; 
-                background-color: #2ecc71; 
-                color: white; 
-                padding: 14px 28px; 
-                text-decoration: none; 
-                border-radius: 6px; 
-                font-weight: bold; 
-                font-size: 16px;
-                transition: background 0.2s; 
-                box-shadow: 0 4px 6px rgba(46, 204, 113, 0.2);
-            }
-            .btn:hover { 
-                background-color: #27ae60; 
-            }
-            .footer-link { 
-                margin-top: 25px; 
-                display: block; 
-                color: #95a5a6; 
-                font-size: 13px; 
-                text-decoration: none; 
-            }
-            .footer-link:hover {
-                text-decoration: underline;
-            }
+            input[type="file"] { padding: 5px 0; }
+            .btn { background-color: #2ecc71; color: white; padding: 14px; border: none; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; width: 100%; margin-top: 10px; transition: background 0.2s; }
+            .btn:hover { background-color: #27ae60; }
+            .footer { text-align: center; margin-top: 20px; font-size: 13px; }
+            .footer a { color: #3498db; text-decoration: none; }
         </style>
     </head>
     <body>
         <div class="container">
             <h1>Analisi Solvibilità Privati</h1>
-            <p>Benvenuto nella piattaforma di Credit Scoring di Drive Scoring. Valuta l'affidabilità creditizia in pochi istanti e invia i documenti per la verifica.</p>
-            <a href="/docs" class="btn">Apri il Form di Test (Docs)</a>
-            <a href="/docs" class="footer-link">Documentazione API v1.0.0</a>
+            <p class="subtitle">Inserisci i dati richiesti e carica il documento di reddito per calcolare istantaneamente lo score finanziario.</p>
+            
+            <form action="/score/privato" method="POST" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label>Email Utente</label>
+                    <input type="email" name="user_email" required placeholder="esempio@email.com">
+                </div>
+                
+                <div class="form-group">
+                    <label>Profilo Destinazione</label>
+                    <input type="text" name="target_profile" required placeholder="Es. Standard, Premium">
+                </div>
+
+                <div class="form-group">
+                    <label>Tipologia Prodotto</label>
+                    <input type="text" name="product_type" required placeholder="Es. Finanziamento Auto">
+                </div>
+
+                <div class="form-group">
+                    <label>Durata Contratto (in mesi)</label>
+                    <input type="number" name="contract_duration_months" required placeholder="Es. 36">
+                </div>
+
+                <div class="form-group">
+                    <label>Rata Mensile Stimata (€)</label>
+                    <input type="number" step="0.01" name="estimated_monthly_rate" required placeholder="Es. 250">
+                </div>
+
+                <div class="form-group">
+                    <label>Anticipo Iniziale (€)</label>
+                    <input type="number" step="0.01" name="initial_down_payment" required placeholder="Es. 1000">
+                </div>
+
+                <div class="form-group">
+                    <label>Debiti/Rate Mensili Attuali (€)</label>
+                    <input type="number" step="0.01" name="current_monthly_debts" required placeholder="Se nessuno metti 0">
+                </div>
+
+                <div class="form-group">
+                    <label>Segnalazioni o Insolvenze Passate?</label>
+                    <select name="has_credit_issues" required>
+                        <option value="false">No (Nessun problema passato)</option>
+                        <option value="true">Sì (Presenza di segnalazioni CRIF)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Data di Nascita</label>
+                    <input type="date" name="birth_date" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Tipo di Contratto di Lavoro</label>
+                    <input type="text" name="contract_type" required placeholder="Es. indeterminato, determinato">
+                </div>
+
+                <div class="form-group">
+                    <label>Data Inizio Impiego</label>
+                    <input type="date" name="employment_start_date" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Settore Lavorativo Datore</label>
+                    <input type="text" name="employer_sector" required placeholder="Es. Pubblico, Privato, Metalmeccanico">
+                </div>
+
+                <div class="form-group">
+                    <label>Reddito Mensile Netto (€)</label>
+                    <input type="number" step="0.01" name="net_monthly_income" required placeholder="Es. 1600">
+                </div>
+
+                <div class="form-group">
+                    <label>Documento di Reddito (Busta paga / CUD - PDF o Immagine)</label>
+                    <input type="file" name="documento_reddito" required accept=".pdf, .png, .jpg, .jpeg">
+                </div>
+
+                <button type="submit" class="btn">Calcola Score Solvibilità</button>
+            </form>
+            
+            <div class="footer">
+                <a href="/docs">Accedi alla Documentazione API Tecnica</a>
+            </div>
         </div>
     </body>
     </html>
@@ -87,66 +126,57 @@ def home():
 
 @app.post("/score/privato")
 async def score_privato(
-    user_email: str = Form(..., description="Email dell'utente"),
-    target_profile: str = Form(..., description="Profilo di destinazione"),
-    product_type: str = Form(..., description="Tipologia di prodotto richiesto"),
-    contract_duration_months: int = Form(..., description="Durata del contratto in mesi"),
-    estimated_monthly_rate: float = Form(..., description="Rata mensile stimata"),
-    initial_down_payment: float = Form(..., description="Anticipo iniziale"),
-    current_monthly_debts: float = Form(..., description="Debiti/rate mensili attuali"),
-    has_credit_issues: bool = Form(..., description="Presenza di segnalazioni o insolvenze passate (True/False)"),
-    birth_date: date = Form(..., description="Data di nascita (YYYY-MM-DD)"),
-    contract_type: str = Form(..., description="Tipo di contratto lavorativo (es. indeterminato, determinato)"),
-    employment_start_date: date = Form(..., description="Data inizio impiego (YYYY-MM-DD)"),
-    employer_sector: str = Form(..., description="Settore lavorativo dell'azienda datrice"),
-    net_monthly_income: float = Form(..., description="Reddito mensile netto"),
-    documento_reddito: UploadFile = File(..., description="Carica il documento di reddito (PDF o Immagine)")
+    user_email: str = Form(...),
+    target_profile: str = Form(...),
+    product_type: str = Form(...),
+    contract_duration_months: int = Form(...),
+    estimated_monthly_rate: float = Form(...),
+    initial_down_payment: float = Form(...),
+    current_monthly_debts: float = Form(...),
+    has_credit_issues: bool = Form(...),
+    birth_date: date = Form(...),
+    contract_type: str = Form(...),
+    employment_start_date: date = Form(...),
+    employer_sector: str = Form(...),
+    net_monthly_income: float = Form(...),
+    documento_reddito: UploadFile = File(...)
 ):
-    # 1. Controllo estensione del documento caricato
     if not documento_reddito.filename.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')):
         raise HTTPException(
             status_code=400, 
             detail="Formato file non valido. Caricare esclusivamente un file PDF o un'immagine (PNG, JPG)."
         )
 
-    # Legge il file in memoria (pronto per futuri salvataggi o analisi)
     contenuto_file = await documento_reddito.read()
     nome_documento = documento_reddito.filename
 
-    # 2. Algoritmo di calcolo dello Credit Scoring (Base 100)
+    # Algoritmo di Credit Scoring
     punteggio = 100
     motivi_penalizzazione = []
     
-    # Penalità per segnalazioni crif/insolvenze
     if has_credit_issues:
         punteggio -= 40
         motivi_penalizzazione.append("Presenza di segnalazioni o insolvenze creditizie.")
         
-    # Penalità per contratti precari o non a tempo indeterminato
     if "indeterminato" not in contract_type.lower():
         punteggio -= 20
         motivi_penalizzazione.append("Contratto di lavoro non a tempo indeterminato.")
         
-    # Calcolo dell'indice di indebitamento complessivo (Rata stimata + Debiti attuali)
     impegno_mensile_totale = estimated_monthly_rate + current_monthly_debts
     rapporto_indebitamento = impegno_mensile_totale / net_monthly_income if net_monthly_income > 0 else 1
     
-    # Se le rate superano il 35% delle entrate, scatta il malus
     if rapporto_indebitamento > 0.35:
         punteggio -= 25
         motivi_penalizzazione.append("Rapporto rata/reddito troppo elevato (superiore al 35%).")
 
-    # Controllo età (es. prof profiles troppo giovani o in età pensionabile avanzata)
     oggi = date.today()
     eta_utente = oggi.year - birth_date.year - ((oggi.month, oggi.day) < (birth_date.month, birth_date.day))
     if eta_utente < 22 or eta_utente > 67:
         punteggio -= 10
         motivi_penalizzazione.append("Età fuori dalla fascia ottimale di finanziabilità.")
 
-    # Assicuriamoci che lo score non scenda mai sotto lo 0
     punteggio_finale = max(0, punteggio)
 
-    # 3. Determinazione dell'esito finale della pratica
     if punteggio_finale >= 70:
         esito = "APPROVATO"
     elif punteggio_finale >= 45:
@@ -154,7 +184,6 @@ async def score_privato(
     else:
         esito = "RIFIUTATO"
 
-    # 4. Risposta finale restituita all'interfaccia grafica
     return {
         "status": "success",
         "user_email": user_email,
