@@ -19,3 +19,9 @@ async def generate_pdf(first_name: str = Form(...), last_name: str = Form(...)):
         media_type="application/pdf",
         headers={"Content-Disposition": "attachment; filename=Report_Premium.pdf"}
     )
+from fastapi.responses import HTMLResponse
+
+@app.get("/demo")
+async def get_demo():
+    with open("index.html", "r") as f:
+        return HTMLResponse(content=f.read())
