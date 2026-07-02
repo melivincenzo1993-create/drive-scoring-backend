@@ -9,3 +9,7 @@ python-multipart
 reportlab==4.1.0
 pytesseract==0.3.10
 pillow==10.2.0
+fastapi
+uvicorn
+weasyprint
+gunicorn
