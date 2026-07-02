@@ -6,13 +6,13 @@ import io
 import math
 import logging
 
-# Import per la generazione del PDF Premium ed Elegante
+# Import per la generazione del PDF ad Alto Impatto Grafico
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
-# Configurazione Log di Sicurezza (GDPR Compliant - Nessun dato sensibile in chiaro)
+# Configurazione Log di Sicurezza (GDPR Compliant)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("DriveScoringPremium")
 
@@ -452,152 +452,133 @@ async def score_premium(
     punteggio_finale = max(0, min(100, punteggio))
     esito = "APPROVATO" if punteggio_finale >= 75 else "DA VERIFICARE" if punteggio_finale >= 50 else "RIFIUTATO"
 
-    # 4. GENERAZIONE PDF AD ALTISSIMO IMPATTO GRAFICO (PREMIUM DESIGN)
+    # =========================================================================
+    # 4. GENERAZIONE PDF AD ALTO IMPATTO ESTETICO (STYLING PREMIUM AGGIORNATO)
+    # =========================================================================
     buffer = io.BytesIO()
     
+    # Margini ampi e ariosi per un look editoriale e pulito
     doc = SimpleDocTemplate(
         buffer, 
         pagesize=letter, 
-        rightMargin=36, 
-        leftMargin=36, 
-        topMargin=36, 
-        bottomMargin=36
+        rightMargin=45, 
+        leftMargin=45, 
+        topMargin=45, 
+        bottomMargin=45
     )
     story = []
     
     styles = getSampleStyleSheet()
     
-    # Palette Colori Premium (Slate & Emerald Theme)
-    c_primary = colors.HexColor("#0f172a")    # Ardesia Scuro per intestazioni principali
-    c_secondary = colors.HexColor("#1e293b")  # Grigio scuro per sezioni
-    c_muted = colors.HexColor("#64748b")      # Grigio testo secondario
-    c_bg_light = colors.HexColor("#f8fafc")   # Sfondo pannelli pulito
-    c_border = colors.HexColor("#e2e8f0")     # Linee di divisione sottili
+    # Palette di Colori Minimal e Sofisticata (Ardesia, Grigio Freddo e Accenti Saturi)
+    c_dark = colors.HexColor("#0f172a")       # Slate 900 (Testo e Header principale)
+    c_text = colors.HexColor("#334155")       # Slate 700 (Testo corpo)
+    c_muted = colors.HexColor("#64748b")      # Slate 500 (Didascalie e Metadati)
+    c_border = colors.HexColor("#cbd5e1")     # Slate 300 (Bordi finissimi)
+    c_bg_panel = colors.HexColor("#f8fafc")   # Slate 50 (Sfondi pannelli soft)
     
-    # Assegnazione dinamica del colore dell'esito
+    # Colori di stato (Eleganti, non fluo)
     if esito == "APPROVATO":
-        color_esito = colors.HexColor("#10b981")     # Verde Smeraldo
-        color_esito_bg = colors.HexColor("#ecfdf5")  # Sfondo Verde Light
+        c_status = colors.HexColor("#059669")     # Verde Smeraldo scuro
+        c_status_bg = colors.HexColor("#f0fdf4")  # Sfondo verde impercettibile
     elif esito == "DA VERIFICARE":
-        color_esito = colors.HexColor("#f59e0b")     # Ambra / Oro
-        color_esito_bg = colors.HexColor("#fef3c7")  # Sfondo Oro Light
+        c_status = colors.HexColor("#d97706")     # Ambra scuro
+        c_status_bg = colors.HexColor("#fef9c3")  # Sfondo ambra
     else:
-        color_esito = colors.HexColor("#ef4444")     # Rosso Destrutturato
-        color_esito_bg = colors.HexColor("#ffeeee")  # Sfondo Rosso Light
+        c_status = colors.HexColor("#dc2626")     # Rosso scuro
+        c_status_bg = colors.HexColor("#fef2f2")  # Sfondo rosso
+        
+    # Definizione Stili Tipografici Puliti (Gerarchia Chiara)
+    style_main_title = ParagraphStyle('DocTitle', fontName='Helvetica-Bold', fontSize=20, textColor=c_dark, spaceAfter=2)
+    style_meta_right = ParagraphStyle('DocMeta', fontName='Helvetica', fontSize=9, textColor=c_muted, alignment=2, leading=13)
+    
+    style_section_title = ParagraphStyle('SecTitle', fontName='Helvetica-Bold', fontSize=11, textColor=c_dark, spaceBefore=25, spaceAfter=8)
+    
+    style_cell_label = ParagraphStyle('CellLabel', fontName='Helvetica', fontSize=9.5, textColor=c_muted)
+    style_cell_val = ParagraphStyle('CellVal', fontName='Helvetica-Bold', fontSize=10, textColor=c_text)
+    
+    style_badge_title = ParagraphStyle('BadgeTitle', fontName='Helvetica', fontSize=9, textColor=c_muted, spaceAfter=4)
+    style_badge_val = ParagraphStyle('BadgeVal', fontName='Helvetica-Bold', fontSize=16, textColor=c_status)
+    style_score_val = ParagraphStyle('ScoreVal', fontName='Helvetica-Bold', fontSize=18, textColor=c_dark)
+    
+    style_evidence = ParagraphStyle('EvidenceText', fontName='Helvetica', fontSize=9.5, textColor=c_text, leading=14)
+    style_legal = ParagraphStyle('LegalText', fontName='Helvetica-Oblique', fontSize=7.5, textColor=c_muted, leading=11)
 
-    # Stili di Testo Personalizzati
-    title_style = ParagraphStyle(
-        'PremiumTitle', parent=styles['Heading1'], 
-        fontName='Helvetica-Bold', fontSize=22, 
-        textColor=colors.white, spaceAfter=4
-    )
-    meta_style = ParagraphStyle(
-        'PremiumMeta', parent=styles['Normal'], 
-        fontName='Helvetica', fontSize=9, 
-        textColor=colors.HexColor("#94a3b8")
-    )
-    section_style = ParagraphStyle(
-        'PremiumSec', parent=styles['Heading2'], 
-        fontName='Helvetica-Bold', fontSize=12, 
-        textColor=c_secondary, spaceBefore=22, spaceAfter=10
-    )
-    label_style = ParagraphStyle(
-        'PremiumLabel', parent=styles['Normal'], 
-        fontName='Helvetica-Bold', fontSize=10, 
-        textColor=c_secondary
-    )
-    value_style = ParagraphStyle(
-        'PremiumValue', parent=styles['Normal'], 
-        fontName='Helvetica', fontSize=10, 
-        textColor=colors.HexColor("#334155")
-    )
-    evidence_style = ParagraphStyle(
-        'PremiumEvidence', parent=styles['Normal'], 
-        fontName='Helvetica', fontSize=10, 
-        textColor=colors.HexColor("#475569"), leading=14
-    )
-
-    # --- BLOCK 1: HEADER BANNER (Fascia scura istituzionale) ---
+    # 1. TOP BAR / INTESTAZIONE MINIMAL (Stile agenzia di consulenza)
     header_data = [
         [
-            Paragraph("DRIVE SCORING &bull; REPORT DI AFFIDABILITÀ", title_style),
-            Paragraph(f"<b>ID PRATICA:</b> DS-{math.prod([oggi.day, oggi.month])}<br/><b>DATA:</b> {oggi.strftime('%d/%m/%Y')}", meta_style)
+            Paragraph("DRIVE SCORING", style_main_title),
+            Paragraph(f"<b>REPORT DI AFFIDABILITÀ</b><br/>ID Pratica: DS-{math.prod([oggi.day, oggi.month])}<br/>Data: {oggi.strftime('%d/%m/%Y')}", style_meta_right)
         ]
     ]
-    header_table = Table(header_data, colWidths=[360, 180])
+    header_table = Table(header_data, colWidths=[260, 260])
     header_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), c_primary),
-        ('PADDING', (0,0), (-1,-1), 18),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('ALIGN', (1,0), (1,0), 'RIGHT')
+        ('VALIGN', (0,0), (-1,-1), 'BOTTOM'),
+        ('PADDING', (0,0), (-1,-1), 0),
+        ('LINEBELOW', (0,0), (-1,-1), 1.5, c_dark), # Sottile linea scura di accento sotto l'header
     ]))
     story.append(header_table)
-    story.append(Spacer(1, 15))
+    story.append(Spacer(1, 20))
     
-    # --- BLOCK 2: IL BADGE DI VALUTAZIONE (Pannello Principale) ---
-    esito_badge_text = f"<font size=14 color='{color_esito.hexval()}'><b>{esito}</b></font>"
-    score_badge_text = f"<font size=16 color='{c_primary.hexval()}'><b>{punteggio_finale}</b></font><font size=11 color='{c_muted.hexval()}'> / 100</font>"
-    
+    # 2. PANNELLO RIASSUNTIVO DELLO SCORE (2 Box affiancati, molto ariosi)
     badge_data = [
-        [Paragraph("<b>ESITO PRE-SCORING AUTOMATICO</b>", label_style), Paragraph("<b>INDICE DI SOLVIBILITÀ CORRENTE</b>", label_style)],
-        [Paragraph(esito_badge_text, value_style), Paragraph(score_badge_text, value_style)]
+        [
+            [Paragraph("VALUTAZIONE PROFILO", style_badge_title), Paragraph(esito, style_badge_val)],
+            [Paragraph("INDICE DI SOLVIBILITÀ", style_badge_title), Paragraph(f"{punteggio_finale} <font size=10 color='{c_muted.hexval()}'>/ 100</font>", style_score_val)]
+        ]
     ]
-    badge_table = Table(badge_data, colWidths=[270, 270])
+    badge_table = Table(badge_data, colWidths=[255, 255])
     badge_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), c_bg_light),
-        ('BOX', (0,0), (-1,-1), 1, c_border),
-        ('PADDING', (0,0), (-1,-1), 14),
+        ('BACKGROUND', (0,0), (0,0), c_status_bg), # Il box dell'esito prende un accento di sfondo
+        ('BACKGROUND', (1,0), (1,0), c_bg_panel),  # Il box del punteggio rimane neutro
+        ('BOX', (0,0), (0,0), 0.5, c_border),
+        ('BOX', (1,0), (1,0), 0.5, c_border),
+        ('PADDING', (0,0), (-1,-1), 16),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('LINEBELOW', (0,0), (-1,0), 0.5, c_border),
-        ('BACKGROUND', (0,1), (0,1), color_esito_bg),
     ]))
     story.append(badge_table)
     
-    # --- BLOCK 3: DETTAGLI DI SINTESI (Tabella Dati Input Elegante) ---
-    story.append(Paragraph("PARAMETRI FINANZIARI VALUTATI", section_style))
+    # 3. DATI FINANZIARI STRUTTURATI (Tabella pulita senza linee verticali, solo orizzontali e finissime)
+    story.append(Paragraph("PARAMETRI ECONOMICO-FINANZIARI", style_section_title))
     
     tech_data = [
-        [Paragraph("Profilo del Richiedente", label_style), Paragraph(target_profile.replace('_',' ').upper(), value_style)],
-        [Paragraph("Tipologia Soluzione Richiesta", label_style), Paragraph(product_type.upper(), value_style)],
-        [Paragraph("Reddito Netto Mensile Dichiarato", label_style), Paragraph(f"{net_monthly_income:,.2f} €".replace(",", "."), value_style)],
-        [Paragraph("Certificazione Documentale Coerente", label_style), Paragraph(f"<font color='#059669'><b>{ocr_log_status}</b></font>", value_style)]
+        [Paragraph("Categoria Profilo Richiedente", style_cell_label), Paragraph(target_profile.replace('_',' ').upper(), style_cell_val)],
+        [Paragraph("Soluzione di Mobilità Richiesta", style_cell_label), Paragraph(product_type.upper(), style_cell_val)],
+        [Paragraph("Reddito Netto Mensile Valutato", style_cell_label), Paragraph(f"{net_monthly_income:,.2f} €".replace(",", "."), style_cell_val)],
+        [Paragraph("Verifica Coerenza Documentale", style_cell_label), Paragraph(ocr_log_status.upper(), style_cell_val)]
     ]
-    tech_table = Table(tech_data, colWidths=[240, 300])
+    tech_table = Table(tech_data, colWidths=[240, 280])
     tech_table.setStyle(TableStyle([
         ('PADDING', (0,0), (-1,-1), 10),
-        ('LINEBELOW', (0,0), (-1,-1), 0.5, c_border),
+        ('LINEBELOW', (0,0), (-1,-1), 0.5, c_border), # Solo linee orizzontali di divisione
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('BACKGROUND', (0,0), (-1,0), c_bg_light),
-        ('BACKGROUND', (0,2), (-1,2), c_bg_light),
+        # Sfondo alternato impercettibile per dare struttura senza appesantire
+        ('BACKGROUND', (0,0), (-1,0), c_bg_panel),
+        ('BACKGROUND', (0,2), (-1,2), c_bg_panel),
     ]))
     story.append(tech_table)
     
-    # --- BLOCK 4: NOTIFICHE ED EVIDENZE DI RISCHIO ---
-    story.append(Paragraph("DETTAGLI ED EVIDENZE DI VERIFICA", section_style))
-    evidence_box_content = []
+    # 4. NOTE ED EVIDENZE DI COMPLIANCE / RISCHIO
+    story.append(Paragraph("NOTE ED ANALISI DEL RISCHIO", style_section_title))
+    evidence_rows = []
     
     if motivi:
         for m in motivi:
-            evidence_box_content.append([Paragraph(f"<font color='#ef4444'>&#9632;</font> {m}", evidence_style)])
+            evidence_rows.append([Paragraph(f"<font color='{c_status.hexval()}'>■</font> {m}", style_evidence)])
     else:
-        evidence_box_content.append([Paragraph("<font color='#10b981'>&#9632;</font> <b>Nessuna anomalia riscontrata:</b> Il profilo analizzato soddisfa pienamente i requisiti minimi algoritmici di stabilità economico-finanziaria.", evidence_style)])
+        evidence_rows.append([Paragraph(f"<font color='{c_status.hexval()}'>■</font> <b>Nessun indicatore di rischio rilevato.</b> I parametri finanziari estratti ed elaborati rientrano nelle metriche di stabilità e sostenibilità dell'algoritmo.", style_evidence)])
         
-    evidence_table = Table(evidence_box_content, colWidths=[540])
+    evidence_table = Table(evidence_rows, colWidths=[520])
     evidence_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), c_bg_light),
+        ('BACKGROUND', (0,0), (-1,-1), c_bg_panel),
         ('BOX', (0,0), (-1,-1), 0.5, c_border),
         ('PADDING', (0,0), (-1,-1), 12),
     ]))
     story.append(evidence_table)
     
-    # --- BLOCK 5: FOOTER LEGALE ---
-    story.append(Spacer(1, 40))
-    legal_style = ParagraphStyle(
-        'PremiumLegal', parent=styles['Normal'], 
-        fontName='Helvetica-Oblique', fontSize=7.5, 
-        textColor=colors.HexColor("#94a3b8"), leading=11
-    )
-    story.append(Paragraph(f"<b>Nota di Trasparenza Legale:</b> {DISCLAIMER_TEXT}", legal_style))
+    # 5. FOOTER LEGALE CON SPUNTI ISTITUZIONALI
+    story.append(Spacer(1, 50))
+    story.append(Paragraph(f"<b>Trasparenza & Nota Legale:</b> {DISCLAIMER_TEXT}", style_legal))
     
     doc.build(story)
     buffer.seek(0)
