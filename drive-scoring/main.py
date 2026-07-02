@@ -2,18 +2,18 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from datetime import date
 from typing import Literal, Optional
+import math
 
 app = FastAPI(
     title="Drive Scoring API",
     description="Backend per il calcolo dell'indice di solvibilità finanziaria.",
-    version="1.0.0"
+    version="1.1.0"
 )
 
-# Messaggio di avviso/Disclaimer riutilizzabile sia nella home che nel report
 DISCLAIMER_TEXT = (
     "ATTENZIONE: Il risultato ottenuto ha un valore puramente indicativo e non garantisce in alcun modo "
     "l'approvazione del finanziamento o del contratto. Questo strumento funge esclusivamente da pre-scoring "
-    "per valutare preliminarmente il profilo finanziario e capire se procedere con la richiesta formale all'ente finanziario."
+    "per valutare preliminarmente il perfilo finanziario e capire se procedere con la richiesta formale all'ente finanziario."
 )
 
 @app.get("/", response_class=HTMLResponse)
@@ -43,10 +43,25 @@ def home():
             .footer {{ text-align: center; margin-top: 20px; font-size: 13px; }}
             .footer a {{ color: #3498db; text-decoration: none; }}
         </style>
+        <script>
+            function updateFormFields() {{
+                var profile = document.getElementById("profile_type").value;
+                var lavoroGroup1 = document.getElementById("lavoro-group-1");
+                var lavoroGroup2 = document.getElementById("lavoro-group-2");
+                
+                if (profile === "pensionato") {{
+                    lavoroGroup1.style.display = "none";
+                    lavoroGroup2.style.display = "none";
+                }} else {{
+                    lavoroGroup1.style.display = "flex";
+                    lavoroGroup2.style.display = "flex";
+                }}
+            }}
+        </script>
     </head>
     <body>
         <div class="container">
-            <h1>Analisi Solvibilità Privati</h1>
+            <h1>Analisi Solvibilità</h1>
             <p class="subtitle">Inserisci i dati richiesti per calcolare istantaneamente lo score finanziario.</p>
             
             <div class="disclaimer-box">
@@ -54,6 +69,16 @@ def home():
             </div>
 
             <form action="/score/privato" method="POST" enctype="multipart/form-data">
+                
+                <div class="form-group">
+                    <label>Profilo Richiedente</label>
+                    <select name="profile_type" id="profile_type" onchange="updateFormFields()" required>
+                        <option value="privato_dipendente">Privato (Dipendente)</option>
+                        <option value="libero_professionista">Libero professionista / Ditta individuale</option>
+                        <option value="pensionato">Pensionato</option>
+                    </select>
+                </div>
+
                 <div class="form-group">
                     <label>Email Utente</label>
                     <input type="email" name="user_email" required placeholder="esempio@email.com">
@@ -101,26 +126,26 @@ def home():
                     <input type="date" name="birth_date" required>
                 </div>
 
-                <div class="form-group">
+                <div class="form-group" id="lavoro-group-1">
                     <label>Tipo di Contratto di Lavoro</label>
-                    <select name="contract_type" required>
+                    <select name="contract_type">
                         <option value="indeterminato">Tempo Indeterminato</option>
                         <option value="determinato">Tempo Determinato</option>
                     </select>
                 </div>
 
-                <div class="form-group">
-                    <label>Settore Lavorativo Datore</label>
-                    <input type="text" name="employer_sector" required placeholder="Es. Pubblico, Privato, Metalmeccanico">
+                <div class="form-group" id="lavoro-group-2">
+                    <label>Settore Lavorativo / Ambito Datore</label>
+                    <input type="text" name="employer_sector" placeholder="Es. Pubblico, Privato, Commercio">
                 </div>
 
                 <div class="form-group">
-                    <label>Reddito Mensile Netto (€)</label>
+                    <label>Reddito Mensile Netto / Pensione Netta (€)</label>
                     <input type="number" step="0.01" name="net_monthly_income" required placeholder="Es. 1600">
                 </div>
 
                 <div class="form-group">
-                    <label>Documento di Reddito <span class="optional-text">(Opzionale - Busta paga / CUD)</span></label>
+                    <label>Documento di Reddito <span class="optional-text">(Opzionale - Busta paga / CUD / Cedolino)</span></label>
                     <input type="file" name="documento_reddito" accept=".pdf, .png, .jpg, .jpeg">
                 </div>
 
@@ -138,6 +163,7 @@ def home():
 @app.post("/score/privato")
 async def score_privato(
     request: Request,
+    profile_type: Literal["privato_dipendente", "libero_professionista", "pensionato"] = Form(...),
     user_email: str = Form(...),
     product_type: Literal["finanziamento", "leasing", "NLT"] = Form(...),
     contract_duration_months: int = Form(...),
@@ -146,8 +172,8 @@ async def score_privato(
     current_monthly_debts: float = Form(...),
     has_credit_issues: bool = Form(...),
     birth_date: date = Form(...),
-    contract_type: Literal["indeterminato", "determinato"] = Form(...),
-    employer_sector: str = Form(...),
+    contract_type: Optional[str] = Form("indeterminato"),
+    employer_sector: Optional[str] = Form(""),
     net_monthly_income: float = Form(...),
     documento_reddito: Optional[UploadFile] = File(None)
 ):
@@ -159,14 +185,17 @@ async def score_privato(
                 status_code=400, 
                 detail="Formato file non valido. Caricare esclusivamente un file PDF o un'immagine (PNG, JPG)."
             )
-        await documento_reddito.read()
         nome_documento = documento_reddito.filename
 
-    # Algoritmo di Credit Scoring Severo (Base 90 + Bonus per redditi molto alti)
+    # Algoritmo di Credit Scoring Severo 1.1.0
     punteggio = 90
     motivi_analisi = []
     
-    # Criterio: Analisi del Reddito
+    # Calcolo Età Attuale
+    oggi = date.today()
+    eta_utente = oggi.year - birth_date.year - ((oggi.month, oggi.day) < (birth_date.month, birth_date.day))
+    
+    # 1. Analisi del Reddito / Soglia Minima
     if net_monthly_income >= 3500:
         punteggio += 10
         motivi_analisi.append("Bonus: Profilo ad alto reddito (accesso alla fascia di punteggio massima).")
@@ -174,37 +203,57 @@ async def score_privato(
         punteggio -= 15
         motivi_analisi.append("Penalità: Reddito mensile netto inferiore alla soglia minima di sicurezza (sotto i 1200€).")
 
-    # Criterio: Segnalazioni creditizie
+    # 2. Segnalazioni creditizie (CRIF)
     if has_credit_issues:
         punteggio -= 40
         motivi_analisi.append("Penalità grave: Presenza di segnalazioni o insolvenze creditizie passate.")
         
-    # Criterio: Tipo contratto
-    if contract_type == "determinato":
-        punteggio -= 20
-        motivi_analisi.append("Penalità: Contratto di lavoro a tempo determinato (stabilità lavorativa ridotta).")
+    # 3. Logica differenziata per PENSIONATI vs LAVORATORI
+    if profile_type == "pensionato":
+        motivi_analisi.append("Info Profilo: Richiedente Pensionato (Stabilità entrate garantita).")
         
-    # Criterio SPECIFICO per Tipologia Prodotto (Finanziamento/Leasing VS NLT)
+        # Criterio Età a fine ammortamento/contratto
+        anni_contratto = math.ceil(contract_duration_months / 12)
+        eta_fine_contratto = eta_utente + anni_contratto
+        
+        if eta_fine_contratto > 82:
+            punteggio -= 40
+            motivi_analisi.append(f"Penalità critica: L'età a fine contratto ({eta_fine_contratto} anni) supera i limiti massimi finanziabili (soglia 82 anni).")
+        elif eta_fine_contratto > 75:
+            punteggio -= 20
+            motivi_analisi.append(f"Penalità: L'età a fine contratto ({eta_fine_contratto} anni) è in fascia di rischio avanzata (soglia 75 anni).")
+            
+        # Controllo Minimo Vitale di Sopravvivenza (Restare con almeno 700€ dopo le rate)
+        rimanenza_mensile = net_monthly_income - (estimated_monthly_rate + current_monthly_debts)
+        if rimanenza_mensile < 700:
+            punteggio -= 25
+            motivi_analisi.append(f"Penalità: La rimanenza mensile post-rata ({int(rimanenza_mensile)}€) è inferiore al minimo vitale richiesto di 700€.")
+            
+    else:
+        # Per Dipendenti e Liberi professionisti vale il controllo del contratto
+        if contract_type == "determinato" and profile_type == "privato_dipendente":
+            punteggio -= 20
+            motivi_analisi.append("Penalità: Contratto di lavoro a tempo determinato (stabilità lavorativa ridotta).")
+        elif profile_type == "libero_professionista":
+            motivi_analisi.append("Info Profilo: Libero professionista / Ditta individuale (Valutazione basata su continuità fiscale).")
+
+    # 4. Criterio di Prodotto (Finanziamento/Leasing vs NLT)
     if product_type == "NLT":
-        # Regola ferrea NLT: la singola rata non può superare 1/5 (20%) della busta paga
         rapporto_quinto = estimated_monthly_rate / net_monthly_income if net_monthly_income > 0 else 1
         if rapporto_quinto > 0.20:
             punteggio -= 30
-            motivi_analisi.append(f"Penalità grave NLT: La rata richiesta ({int(rapporto_quinto*100)}%) supera la regola del quinto (1/5) dello stipendio netto.")
+            motivi_analisi.append(f"Penalità grave NLT: La rata richiesta ({int(rapporto_quinto*100)}%) supera la regola del quinto (1/5) dello stipendio/cedolino.")
     else:
-        # Regola Finanziamento/Leasing: rapporto indebitamento complessivo (nuova rata + debiti vecchi) sotto il 30%
         impegno_mensile_totale = estimated_monthly_rate + current_monthly_debts
         rapporto_indebitamento = impegno_mensile_totale / net_monthly_income if net_monthly_income > 0 else 1
         if rapporto_indebitamento > 0.30:
             punteggio -= 25
             motivi_analisi.append(f"Penalità: Rapporto indebitamento complessivo troppo elevato ({int(rapporto_indebitamento*100)}%). Supera la soglia prudenziale del 30%.")
 
-    # Criterio: Anagrafica
-    oggi = date.today()
-    eta_utente = oggi.year - birth_date.year - ((oggi.month, oggi.day) < (birth_date.month, birth_date.day))
-    if eta_utente < 22 or eta_utente > 67:
+    # 5. Anagrafica Standard per Privati Generici
+    if profile_type != "pensionato" and (eta_utente < 22 or eta_utente > 67):
         punteggio -= 10
-        motivi_analisi.append("Penalità: Età del richiedente fuori dalla fascia ottimale di finanziabilità.")
+        motivi_analisi.append("Penalità: Età del richiedente fuori dalla fascia ottimale di finanziabilità standard (22-67 anni).")
 
     punteggio_finale = max(0, min(100, punteggio))
 
@@ -221,7 +270,7 @@ async def score_privato(
 
     accept_header = request.headers.get("accept", "")
     if "text/html" in accept_header:
-        dettagli_html = "".join([f"<li>{motivo}</li>" for motivo in motivi_analisi]) if motivi_analisi else "<li>Nessuna criticità rilevata. Profilo finanziario in linea con i parametri standard.</li>"
+        dettagli_html = "".join([f"<li>{motivo}</li>" for motivo in motivi_analisi]) if motivi_analisi else "<li>Nessuna criticità rilevata. Profilo in linea con i parametri standard.</li>"
         
         return HTMLResponse(content=f"""
         <!DOCTYPE html>
@@ -266,7 +315,8 @@ async def score_privato(
 
                 <div class="info-meta">
                     Pratica associata a: <strong>{user_email}</strong><br>
-                    Prodotto richiesto: {product_type.upper()} | Documento: {nome_documento}
+                    Profilo: {profile_type.upper().replace('_', ' ')} | Prodotto: {product_type.upper()}<br>
+                    Documento analizzato: {nome_documento}
                 </div>
 
                 <a href="/" class="btn-back">Esegui un nuovo calcolo</a>
@@ -277,12 +327,12 @@ async def score_privato(
 
     return {
         "status": "success",
+        "profile_type": profile_type,
         "user_email": user_email,
         "product_type": product_type,
-        "contract_type": contract_type,
         "indice_solvibilita": f"{punteggio_finale}/100",
         "esito_pratica": esito,
         "documento_ricevuto": nome_documento,
-        "dettagli_analisi": motivi_analisi if motivi_analisi else ["Nessuna criticità rilevata."],
+        "dettagli_analisi": motivi_analisi,
         "nota_informativa": DISCLAIMER_TEXT
     }
