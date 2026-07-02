@@ -6,8 +6,8 @@ import math
 
 app = FastAPI(
     title="Drive Scoring API",
-    description="Backend per il calcolo dell'indice di solvibilità finanziaria.",
-    version="1.2.0"
+    description="Backend avanzato per il calcolo dell'indice di solvibilità finanziaria.",
+    version="1.3.0"
 )
 
 DISCLAIMER_TEXT = (
@@ -45,7 +45,7 @@ def home():
         </style>
         <script>
             function updateFormFields() {{
-                var profile = document.getElementById("profile_type").value;
+                var profile = document.getElementById("target_profile").value;
                 var lavoroDipendente = document.getElementById("gruppo-dipendente");
                 var lavoroPiva = document.getElementById("gruppo-piva");
                 var docLabel = document.getElementById("doc-label");
@@ -70,7 +70,7 @@ def home():
     <body>
         <div class="container">
             <h1>Analisi Solvibilità Multi-Profilo</h1>
-            <p class="subtitle">Seleziona il profilo corretto e calcola l'affidabilità finanziaria.</p>
+            <p class="subtitle">Seleziona il profilo di destinazione e calcola l'affidabilità finanziaria.</p>
             
             <div class="disclaimer-box">
                 <strong>Nota informativa importante:</strong> {DISCLAIMER_TEXT}
@@ -79,8 +79,8 @@ def home():
             <form action="/score/privato" method="POST" enctype="multipart/form-data">
                 
                 <div class="form-group">
-                    <label>Profilo Richiedente</label>
-                    <select name="profile_type" id="profile_type" onchange="updateFormFields()" required>
+                    <label>Profilo di Destinazione (Profilo Richiedente)</label>
+                    <select name="target_profile" id="target_profile" onchange="updateFormFields()" required>
                         <option value="privato_dipendente">Privato (Dipendente)</option>
                         <option value="libero_professionista">Libero professionista / Ditta individuale</option>
                         <option value="pensionato">Pensionato</option>
@@ -179,20 +179,20 @@ def home():
 @app.post("/score/privato")
 async def score_privato(
     request: Request,
-    profile_type: Literal["privato_dipendente", "libero_professionista", "pensionato"] = Form(...),
-    user_email: str = Form(...),
-    product_type: Literal["finanziamento", "leasing", "NLT"] = Form(...),
-    contract_duration_months: int = Form(...),
-    estimated_monthly_rate: float = Form(...),
-    initial_down_payment: float = Form(...),
-    current_monthly_debts: float = Form(...),
-    has_credit_issues: bool = Form(...),
-    birth_date: date = Form(...),
-    contract_type: Optional[str] = Form("indeterminato"),
-    employer_sector: Optional[str] = Form(""),
-    piva_start_year: Optional[int] = Form(None),
-    net_monthly_income: float = Form(...),
-    documento_reddito: Optional[UploadFile] = File(None)
+    user_email: str = Form(..., description="Email dell'utente"),
+    target_profile: Literal["privato_dipendente", "libero_professionista", "pensionato"] = Form(..., description="Profilo di destinazione"),
+    product_type: Literal["finanziamento", "leasing", "NLT"] = Form(..., description="Tipologia di prodotto richiesto"),
+    contract_duration_months: int = Form(..., description="Durata del contratto in mesi"),
+    estimated_monthly_rate: float = Form(..., description="Rata mensile stimata"),
+    initial_down_payment: float = Form(..., description="Anticipo iniziale"),
+    current_monthly_debts: float = Form(..., description="Debiti/rate mensili attuali"),
+    has_credit_issues: bool = Form(..., description="Presenza di segnalazioni o insolvenze passate"),
+    birth_date: date = Form(..., description="Data di nascita (YYYY-MM-DD)"),
+    net_monthly_income: float = Form(..., description="Reddito mensile netto dichiarato"),
+    contract_type: Optional[str] = Form("indeterminato", description="Tipo di contratto (solo dipendenti)"),
+    employer_sector: Optional[str] = Form("", description="Settore lavorativo (solo dipendenti)"),
+    piva_start_year: Optional[int] = Form(None, description="Anno inizio attività (solo P.IVA)"),
+    documento_reddito: Optional[UploadFile] = File(None, description="File opzionale di reddito")
 ):
     nome_documento = "Non caricato"
     if documento_reddito and documento_reddito.filename:
@@ -221,8 +221,8 @@ async def score_privato(
         punteggio -= 40
         motivi_analisi.append("Penalità grave: Presenza di segnalazioni o insolvenze creditizie passate.")
         
-    # 3. Logica in base al profilo
-    if profile_type == "pensionato":
+    # 3. Logica in base al profilo di destinazione (target_profile)
+    if target_profile == "pensionato":
         motivi_analisi.append("Info Profilo: Richiedente Pensionato.")
         anni_contratto = math.ceil(contract_duration_months / 12)
         eta_fine_contratto = eta_utente + anni_contratto
@@ -238,7 +238,7 @@ async def score_privato(
             punteggio -= 25
             motivi_analisi.append(f"Penalità: La rimanenza mensile post-rata ({int(rimanenza_mensile)}€) è inferiore al minimo vitale (700€).")
             
-    elif profile_type == "libero_professionista":
+    elif target_profile == "libero_professionista":
         motivi_analisi.append("Info Profilo: Libero Professionista / Ditta Individuale.")
         if piva_start_year:
             anzianita_piva = oggi.year - piva_start_year
@@ -252,7 +252,7 @@ async def score_privato(
             punteggio -= 10
             motivi_analisi.append("Penalità: Anno di apertura P.IVA non dichiarato.")
             
-    else: # privato dipendente
+    else: # privato_dipendente
         if contract_type == "determinato":
             punteggio -= 20
             motivi_analisi.append("Penalità: Contratto di lavoro a tempo determinato (stabilità ridotta).")
@@ -265,44 +265,4 @@ async def score_privato(
             motivi_analisi.append(f"Penalità grave NLT: La rata richiesta ({int(rapporto_quinto*100)}%) supera il limite di 1/5 del reddito netto disponibile.")
     else:
         impegno_mensile_totale = estimated_monthly_rate + current_monthly_debts
-        rapporto_indebitamento = impegno_mensile_totale / net_monthly_income if net_monthly_income > 0 else 1
-        if rapporto_indebitamento > 0.30:
-            punteggio -= 25
-            motivi_analisi.append(f"Penalità: Rapporto indebitamento complessivo troppo elevato ({int(rapporto_indebitamento*100)}%). Supera la soglia del 30%.")
-
-    # 5. Anagrafica Standard (Esclusi Pensionati)
-    if profile_type != "pensionato" and (eta_utente < 22 or eta_utente > 67):
-        punteggio -= 10
-        motivi_analisi.append("Penalità: Età del richiedente fuori dalla fascia ottimale standard (22-67 anni).")
-
-    punteggio_finale = max(0, min(100, punteggio))
-
-    # Esito
-    if punteggio_finale >= 75:
-        esito = "APPROVATO (PRE-SCORING)"
-        colore_badge = "#2ecc71"
-    elif punteggio_finale >= 50:
-        esito = "DA VERIFICARE"
-        colore_badge = "#e67e22"
-    else:
-        esito = "RIFIUTATO"
-        colore_badge = "#e74c3c"
-
-    accept_header = request.headers.get("accept", "")
-    if "text/html" in accept_header:
-        dettagli_html = "".join([f"<li>{motivo}</li>" for motivo in motivi_analisi]) if motivi_analisi else "<li>Nessuna criticità rilevata.</li>"
-        
-        return HTMLResponse(content=f"""
-        <!DOCTYPE html>
-        <html lang="it">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Report Solvibilità - Risultato</title>
-            <style>
-                body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }}
-                .card {{ background: white; max-width: 550px; width: 100%; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); text-align: center; }}
-                .badge {{ display: inline-block; padding: 10px 20px; color: white; background-color: {colore_badge}; border-radius: 50px; font-weight: bold; font-size: 16px; margin-bottom: 20px; letter-spacing: 0.5px; }}
-                .score-text {{ font-size: 48px; font-weight: 800; color: #2c3e50; margin: 10px 0; }}
-                .progress-container {{ background-color: #e0e0e0; border-radius: 8px; height: 12px; width: 100%; margin: 20px 0 30px 0; overflow: hidden; }}
-                .progress-bar {{ background-color: {colore_
+        rapporto_indebitamento = impegno_mensile_totale / net_monthly_income if net_monthly_income > 0 else
