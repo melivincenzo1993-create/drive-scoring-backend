@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from datetime import date
 from typing import Literal, Optional
@@ -125,6 +125,7 @@ def home():
 
 @app.post("/score/privato")
 async def score_privato(
+    request: Request,
     user_email: str = Form(...),
     product_type: Literal["finanziamento", "leasing", "NLT"] = Form(...),
     contract_duration_months: int = Form(...),
@@ -136,18 +137,17 @@ async def score_privato(
     contract_type: Literal["indeterminato", "determinato"] = Form(...),
     employer_sector: str = Form(...),
     net_monthly_income: float = Form(...),
-    documento_reddito: Optional[UploadFile] = File(None) # <-- Reso opzionale (None di default)
+    documento_reddito: Optional[UploadFile] = File(None)
 ):
     nome_documento = "Non caricato"
 
-    # Se l'utente decide di caricare un file, effettuiamo i controlli sul formato
     if documento_reddito and documento_reddito.filename:
         if not documento_reddito.filename.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')):
             raise HTTPException(
                 status_code=400, 
                 detail="Formato file non valido. Caricare esclusivamente un file PDF o un'immagine (PNG, JPG)."
             )
-        contenuto_file = await documento_reddito.read()
+        await documento_reddito.read()
         nome_documento = documento_reddito.filename
 
     # Algoritmo di Credit Scoring
@@ -177,13 +177,70 @@ async def score_privato(
 
     punteggio_finale = max(0, punteggio)
 
+    # Definizione esito e colori grafici
     if punteggio_finale >= 70:
         esito = "APPROVATO"
+        colore_badge = "#2ecc71"
     elif punteggio_finale >= 45:
-        esito = "DA VERIFICARE (Richiede analisi manuale della busta paga)"
+        esito = "DA VERIFICARE"
+        colore_badge = "#e67e22"
     else:
         esito = "RIFIUTATO"
+        colore_badge = "#e74c3c"
 
+    # Se la richiesta arriva dal form del browser, restituiamo la pagina grafica
+    accept_header = request.headers.get("accept", "")
+    if "text/html" in accept_header:
+        dettagli_html = "".join([f"<li>{motivo}</li>" for motivo in motivi_penalizzazione]) if motivi_penalizzazione else "<li>Nessuna criticità rilevata. Profilo finanziario ottimale.</li>"
+        
+        return HTMLResponse(content=f"""
+        <!DOCTYPE html>
+        <html lang="it">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Report Solvibilità - Risultato</title>
+            <style>
+                body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }}
+                .card {{ background: white; max-width: 550px; width: 100%; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); text-align: center; }}
+                .badge {{ display: inline-block; padding: 10px 20px; color: white; background-color: {colore_badge}; border-radius: 50px; font-weight: bold; font-size: 18px; margin-bottom: 20px; letter-spacing: 1px; }}
+                .score-text {{ font-size: 48px; font-weight: 800; color: #2c3e50; margin: 10px 0; }}
+                .progress-container {{ background-color: #e0e0e0; border-radius: 8px; height: 12px; width: 100%; margin: 20px 0 30px 0; overflow: hidden; }}
+                .progress-bar {{ background-color: {colore_badge}; height: 100%; width: {punteggio_finale}%; transition: width 0.5s ease-in-out; }}
+                .details-box {{ text-align: left; background-color: #f8f9fa; border-left: 4px solid {colore_badge}; padding: 15px 20px; border-radius: 0 8px 8px 0; margin-bottom: 30px; }}
+                .details-box h3 {{ margin-top: 0; color: #34495e; font-size: 16px; }}
+                .details-box ul {{ padding-left: 20px; margin: 5px 0 0 0; color: #7f8c8d; font-size: 14px; line-height: 1.6; }}
+                .btn-back {{ display: inline-block; background-color: #34495e; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 15px; transition: background 0.2s; }}
+                .btn-back:hover {{ background-color: #2c3e50; }}
+                .info-meta {{ font-size: 13px; color: #95a5a6; margin-bottom: 25px; }}
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <div class="badge">{esito}</div>
+                <div class="score-text">{punteggio_finale}<span style="font-size: 20px; color: #95a5a6;">/100</span></div>
+                
+                <div class="progress-container">
+                    <div class="progress-bar"></div>
+                </div>
+
+                <div class="details-box">
+                    <h3>Dettagli Analisi del Rischio:</h3>
+                    <ul>{dettagli_html}</ul>
+                </div>
+
+                <div class="info-meta">
+                    Pratica associata a: <strong>{user_email}</strong><br>
+                    Prodotto richiesto: {product_type.upper()} | Documento: {nome_documento}
+                </div>
+
+                <a href="/" class="btn-back">Esegui un nuovo calcolo</a>
+            </div>
+        </body>
+        </html>
+        """)
+
+    # Altrimenti (da /docs o script esterni), restituisce il JSON classico
     return {
         "status": "success",
         "user_email": user_email,
