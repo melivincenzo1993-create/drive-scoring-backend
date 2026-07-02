@@ -1,3 +1,21 @@
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse
+from datetime import date
+from typing import Literal, Optional
+import math
+
+app = FastAPI(
+    title="Drive Scoring API",
+    description="Backend avanzato per il calcolo dell'indice di solvibilità finanziaria.",
+    version="1.3.2"
+)
+
+DISCLAIMER_TEXT = (
+    "ATTENZIONE: Il risultato ottenuto ha un valore puramente indicativo e non garantisce in alcun modo "
+    "l'approvazione del finanziamento o del contratto. Questo strumento funge esclusivamente da pre-scoring "
+    "per valutare preliminarmente il profilo finanziario e capire se procedere con la richiesta formale all'ente finanziario."
+)
+
 @app.get("/", response_class=HTMLResponse)
 def home():
     return f"""
@@ -199,7 +217,7 @@ def home():
                     <label>Profilo di Destinazione (Profilo Richiedente)</label>
                     <select name="target_profile" id="target_profile" onchange="updateFormFields()" required>
                         <option value="privato_dipendente">Privato (Dipendente)</option>
-                        <option value="libero_professionista">Libero professionista / Ditta individuale</option>
+                        <option value="libero_professionista">Liber professionista / Ditta individuale</option>
                         <option value="pensionato">Pensionato</option>
                     </select>
                 </div>
@@ -292,3 +310,178 @@ def home():
     </body>
     </html>
     """
+
+@app.post("/score/privato")
+async def score_privato(
+    request: Request,
+    user_email: str = Form(..., description="Email dell'utente"),
+    target_profile: Literal["privato_dipendente", "libero_professionista", "pensionato"] = Form(..., description="Profilo di destinazione"),
+    product_type: Literal["finanziamento", "leasing", "NLT"] = Form(..., description="Tipologia di prodotto richiesto"),
+    contract_duration_months: int = Form(..., description="Durata del contratto in mesi"),
+    estimated_monthly_rate: float = Form(..., description="Rata mensile stimata"),
+    initial_down_payment: float = Form(..., description="Anticipo iniziale"),
+    current_monthly_debts: float = Form(..., description="Debiti/rate mensili attuali"),
+    has_credit_issues: bool = Form(..., description="Presenza di segnalazioni o insolvenze passate"),
+    birth_date: date = Form(..., description="Data di nascita (YYYY-MM-DD)"),
+    net_monthly_income: float = Form(..., description="Reddito mensile netto dichiarato"),
+    contract_type: Optional[str] = Form("indeterminato", description="Tipo di contratto (solo dipendenti)"),
+    employer_sector: Optional[str] = Form("", description="Settore lavorativo (solo dipendenti)"),
+    piva_start_year: Optional[int] = Form(None, description="Anno inizio attività (solo P.IVA)"),
+    documento_reddito: Optional[UploadFile] = File(None, description="File opzionale di reddito")
+):
+    nome_documento = "Non caricato"
+    if documento_reddito and documento_reddito.filename:
+        if not documento_reddito.filename.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')):
+            raise HTTPException(status_code=400, detail="Formato file non valido.")
+        nome_documento = documento_reddito.filename
+
+    punteggio = 90
+    motivi_analisi = []
+    
+    oggi = date.today()
+    eta_utente = oggi.year - birth_date.year - ((oggi.month, oggi.day) < (birth_date.month, birth_date.day))
+    
+    if net_monthly_income >= 3500:
+        punteggio += 10
+        motivi_analisi.append("Bonus: Profilo ad alto reddito (accesso alla fascia di punteggio massima).")
+    elif net_monthly_income < 1200:
+        punteggio -= 15
+        motivi_analisi.append("Penalità: Reddito mensile netto inferiore alla soglia minima di sicurezza (sotto i 1200€).")
+
+    if has_credit_issues:
+        punteggio -= 40
+        motivi_analisi.append("Penalità grave: Presenza di segnalazioni o insolvenze creditizie passate.")
+        
+    if target_profile == "pensionato":
+        motivi_analisi.append("Info Profilo: Richiedente Pensionato.")
+        anni_contratto = math.ceil(contract_duration_months / 12)
+        eta_fine_contratto = eta_utente + anni_contratto
+        if eta_fine_contratto > 82:
+            punteggio -= 40
+            motivi_analisi.append(f"Penalità critica: L'età a fine contratto ({eta_fine_contratto} anni) supera i limiti massimi finanziabili.")
+        elif eta_fine_contratto > 75:
+            punteggio -= 20
+            motivi_analisi.append(f"Penalità: L'età a fine contratto ({eta_fine_contratto} anni) è in fascia di rischio avanzata.")
+            
+        rimanenza_mensile = net_monthly_income - (estimated_monthly_rate + current_monthly_debts)
+        if rimanenza_mensile < 700:
+            punteggio -= 25
+            motivi_analisi.append(f"Penalità: La rimanenza mensile post-rata ({int(rimanenza_mensile)}€) è inferiore al minimo vitale (700€).")
+            
+    elif target_profile == "libero_professionista":
+        motivi_analisi.append("Info Profilo: Libero Professionista / Ditta Individuale.")
+        if piva_start_year:
+            anzianita_piva = oggi.year - piva_start_year
+            if anzianita_piva < 2:
+                punteggio -= 35
+                motivi_analisi.append(f"Penalità grave: Partita IVA troppo recente ({anzianita_piva} anni). Rischio startup elevato sotto i 24 mesi.")
+            elif anzianita_piva >= 5:
+                punteggio += 10
+                motivi_analisi.append(f"Bonus stabilità: Partita IVA attiva da oltre 5 anni ({anzianita_piva} anni di storico fiscale).")
+        else:
+            punteggio -= 10
+            motivi_analisi.append("Penalità: Anno di apertura P.IVA non dichiarato.")
+            
+    else:
+        if contract_type == "determinato":
+            punteggio -= 20
+            motivi_analisi.append("Penalità: Contratto di lavoro a tempo determinato (stabilità ridotta).")
+
+    if product_type == "NLT":
+        rapporto_quinto = estimated_monthly_rate / net_monthly_income if net_monthly_income > 0 else 1
+        if rapporto_quinto > 0.20:
+            punteggio -= 30
+            motivi_analisi.append(f"Penalità grave NLT: La rata richiesta ({int(rapporto_quinto*100)}%) supera il limite di 1/5 del reddito netto disponibile.")
+    else:
+        impegno_mensile_totale = estimated_monthly_rate + current_monthly_debts
+        rapporto_indebitamento = impegno_mensile_totale / net_monthly_income if net_monthly_income > 0 else 1
+        if rapporto_indebitamento > 0.30:
+            punteggio -= 25
+            motivi_analisi.append(f"Penalità: Rapporto indebitamento complessivo troppo elevato ({int(rapporto_indebitamento*100)}%). Supera la soglia del 30%.")
+
+    if target_profile != "pensionato" and (eta_utente < 22 or eta_utente > 67):
+        punteggio -= 10
+        motivi_analisi.append("Penalità: Età del richiedente fuori dalla fascia ottimale standard (22-67 anni).")
+
+    punteggio_finale = max(0, min(100, punteggio))
+
+    if punteggio_finale >= 75:
+        esito = "APPROVATO (PRE-SCORING)"
+        colore_badge = "#10b981"
+    elif punteggio_finale >= 50:
+        esito = "DA VERIFICARE"
+        colore_badge = "#f59e0b"
+    else:
+        esito = "RIFIUTATO"
+        colore_badge = "#ef4444"
+
+    accept_header = request.headers.get("accept", "")
+    if "text/html" in accept_header:
+        dettagli_html = "".join([f"<li>{motivo}</li>" for motivo in motivi_analisi]) if motivi_analisi else "<li>Nessuna criticità rilevata.</li>"
+        
+        return HTMLResponse(content=f"""
+        <!DOCTYPE html>
+        <html lang="it">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Report Solvibilità - Risultato</title>
+            <link rel="preconnect" href="https://fonts.googleapis.com">
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+            <style>
+                body {{ font-family: 'Inter', sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; color: #0f172a; -webkit-font-smoothing: antialiased; }}
+                .card {{ background: white; max-width: 540px; width: 100%; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.02), 0 8px 10px -6px rgba(0, 0, 0, 0.03); border: 1px solid #e2e8f0; text-align: center; }}
+                .badge {{ display: inline-block; padding: 8px 18px; color: white; background-color: {colore_badge}; border-radius: 50px; font-weight: 600; font-size: 14px; margin-bottom: 24px; letter-spacing: -0.01em; }}
+                .score-text {{ font-size: 54px; font-weight: 800; color: #0f172a; margin: 10px 0; letter-spacing: -0.03em; }}
+                .progress-container {{ background-color: #f1f5f9; border-radius: 8px; height: 10px; width: 100%; margin: 24px 0 32px 0; overflow: hidden; }}
+                .progress-bar {{ background-color: {colore_badge}; height: 100%; width: {punteggio_finale}%; }}
+                .details-box {{ text-align: left; background-color: #f8fafc; border-left: 4px solid {colore_badge}; padding: 20px; border-radius: 0 12px 12px 0; margin-bottom: 32px; border: 1px solid #e2e8f0; border-left-width: 4px; }}
+                .details-box h3 {{ margin-top: 0; color: #0f172a; font-size: 15px; font-weight: 600; }}
+                .details-box ul {{ padding-left: 20px; margin: 10px 0 0 0; color: #64748b; font-size: 14px; line-height: 1.6; }}
+                .disclaimer-report {{ background-color: #fef3c7; color: #d97706; border: 1px solid #fde68a; padding: 16px; border-radius: 8px; font-size: 12px; text-align: justify; line-height: 1.6; margin-bottom: 32px; }}
+                .btn-back {{ display: inline-block; background-color: #1e293b; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; transition: background-color 0.2s; }}
+                .btn-back:hover {{ background-color: #0f172a; }}
+                .info-meta {{ font-size: 13px; color: #64748b; margin-bottom: 32px; line-height: 1.5; }}
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <div class="badge">{esito}</div>
+                <div class="score-text">{punteggio_finale}<span style="font-size: 22px; color: #94a3b8; font-weight: 500;">/100</span></div>
+                
+                <div class="progress-container">
+                    <div class="progress-bar"></div>
+                </div>
+
+                <div class="details-box">
+                    <h3>Parametri ed Evidenze Rilevate:</h3>
+                    <ul>{dettagli_html}</ul>
+                </div>
+
+                <div class="disclaimer-report">
+                    <strong>Nota Legale / Informativa sul Pre-Scoring:</strong> {DISCLAIMER_TEXT}
+                </div>
+
+                <div class="info-meta">
+                    Pratica associata a: <strong>{user_email}</strong><br>
+                    Profilo: {target_profile.upper().replace('_', ' ')} | Prodotto: {product_type.upper()}<br>
+                    Documento analizzato: {nome_documento}
+                </div>
+
+                <a href="/" class="btn-back">Esegui un nuovo calcolo</a>
+            </div>
+        </body>
+        </html>
+        """)
+
+    return {
+        "status": "success",
+        "target_profile": target_profile,
+        "user_email": user_email,
+        "product_type": product_type,
+        "indice_solvibilita": f"{punteggio_finale}/100",
+        "esito_pratica": esito,
+        "dettagli_analisi": motivi_analisi,
+        "nota_informativa": DISCLAIMER_TEXT
+    }
