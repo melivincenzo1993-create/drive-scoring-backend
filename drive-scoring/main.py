@@ -6,7 +6,7 @@ import io
 import math
 import logging
 
-# Import per la generazione del PDF Elegante
+# Import per la generazione del PDF Premium ed Elegante
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -452,67 +452,158 @@ async def score_premium(
     punteggio_finale = max(0, min(100, punteggio))
     esito = "APPROVATO" if punteggio_finale >= 75 else "DA VERIFICARE" if punteggio_finale >= 50 else "RIFIUTATO"
 
-    # 4. GENERAZIONE PDF ELEGANTE CON REPORTLAB
+    # 4. GENERAZIONE PDF AD ALTISSIMO IMPATTO GRAFICO (PREMIUM DESIGN)
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
+    
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=letter, 
+        rightMargin=36, 
+        leftMargin=36, 
+        topMargin=36, 
+        bottomMargin=36
+    )
     story = []
     
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontName='Helvetica-Bold', fontSize=24, textColor=colors.HexColor("#0f172a"), spaceAfter=6)
-    subtitle_style = ParagraphStyle('Sub', parent=styles['Normal'], fontName='Helvetica', fontSize=10, textColor=colors.HexColor("#64748b"), spaceAfter=20)
-    section_title = ParagraphStyle('SecTitle', parent=styles['Heading2'], fontName='Helvetica-Bold', fontSize=14, textColor=colors.HexColor("#1e293b"), spaceBefore=15, spaceAfter=10)
-    body_style = ParagraphStyle('Body', parent=styles['Normal'], fontName='Helvetica', fontSize=10, textColor=colors.HexColor("#334155"), leading=14)
     
-    # Intestazione
-    story.append(Paragraph("DRIVE SCORING - REPORT UFFICIALE", title_style))
-    story.append(Paragraph(f"Generato il: {oggi.strftime('%d/%m/%Y')} | Identificativo Pratica Anonimizzato: DS-{math.prod([oggi.day, oggi.month])}", subtitle_style))
-    story.append(Spacer(1, 10))
+    # Palette Colori Premium (Slate & Emerald Theme)
+    c_primary = colors.HexColor("#0f172a")    # Ardesia Scuro per intestazioni principali
+    c_secondary = colors.HexColor("#1e293b")  # Grigio scuro per sezioni
+    c_muted = colors.HexColor("#64748b")      # Grigio testo secondario
+    c_bg_light = colors.HexColor("#f8fafc")   # Sfondo pannelli pulito
+    c_border = colors.HexColor("#e2e8f0")     # Linee di divisione sottili
     
-    # Tabella Score ad alto impatto visivo
-    score_color = "#10b981" if esito == "APPROVATO" else "#f59e0b" if esito == "DA VERIFICARE" else "#ef4444"
-    data_score = [
-        [Paragraph("<b>ESITO FINALE PRE-SCORING</b>", body_style), Paragraph(f"<b><font color='{score_color}'>{esito}</font></b>", body_style)],
-        [Paragraph("<b>INDICE DI SOLVIBILITÀ</b>", body_style), Paragraph(f"<b>{punteggio_finale} / 100</b>", body_style)]
-    ]
-    t_score = Table(data_score, colWidths=[250, 250])
-    t_score.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#f8fafc")),
-        ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#e2e8f0")),
-        ('PADDING', (0,0), (-1,-1), 12),
-        ('ALIGN', (1,0), (1,-1), 'RIGHT')
-    ]))
-    story.append(t_score)
-    story.append(Spacer(1, 15))
-    
-    # Tabella Dati Analizzati
-    story.append(Paragraph("Dati Tecnici di Input (Verifica Coerenza)", section_title))
-    data_tecnica = [
-        ["Profilo Richiedente", target_profile.replace('_',' ').upper()],
-        ["Tipologia Prodotto", product_type.upper()],
-        ["Reddito Mensile Dichiarato", f"{net_monthly_income} €"],
-        ["Incrocio OCR Documentale", ocr_log_status]
-    ]
-    t_tech = Table(data_tecnica, colWidths=[250, 250])
-    t_tech.setStyle(TableStyle([
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
-        ('PADDING', (0,0), (-1,-1), 8),
-        ('FONTNAME', (0,0), (0,-1), 'Helvetica-Bold'),
-    ]))
-    story.append(t_tech)
-    story.append(Spacer(1, 15))
+    # Assegnazione dinamica del colore dell'esito
+    if esito == "APPROVATO":
+        color_esito = colors.HexColor("#10b981")     # Verde Smeraldo
+        color_esito_bg = colors.HexColor("#ecfdf5")  # Sfondo Verde Light
+    elif esito == "DA VERIFICARE":
+        color_esito = colors.HexColor("#f59e0b")     # Ambra / Oro
+        color_esito_bg = colors.HexColor("#fef3c7")  # Sfondo Oro Light
+    else:
+        color_esito = colors.HexColor("#ef4444")     # Rosso Destrutturato
+        color_esito_bg = colors.HexColor("#ffeeee")  # Sfondo Rosso Light
 
-    # Dettagli ed evidenze
-    story.append(Paragraph("Evidenze Rilevate dall'Algoritmo", section_title))
+    # Stili di Testo Personalizzati
+    title_style = ParagraphStyle(
+        'PremiumTitle', parent=styles['Heading1'], 
+        fontName='Helvetica-Bold', fontSize=22, 
+        textColor=colors.white, spaceAfter=4
+    )
+    meta_style = ParagraphStyle(
+        'PremiumMeta', parent=styles['Normal'], 
+        fontName='Helvetica', fontSize=9, 
+        textColor=colors.HexColor("#94a3b8")
+    )
+    section_style = ParagraphStyle(
+        'PremiumSec', parent=styles['Heading2'], 
+        fontName='Helvetica-Bold', fontSize=12, 
+        textColor=c_secondary, spaceBefore=22, spaceAfter=10
+    )
+    label_style = ParagraphStyle(
+        'PremiumLabel', parent=styles['Normal'], 
+        fontName='Helvetica-Bold', fontSize=10, 
+        textColor=c_secondary
+    )
+    value_style = ParagraphStyle(
+        'PremiumValue', parent=styles['Normal'], 
+        fontName='Helvetica', fontSize=10, 
+        textColor=colors.HexColor("#334155")
+    )
+    evidence_style = ParagraphStyle(
+        'PremiumEvidence', parent=styles['Normal'], 
+        fontName='Helvetica', fontSize=10, 
+        textColor=colors.HexColor("#475569"), leading=14
+    )
+
+    # --- BLOCK 1: HEADER BANNER (Fascia scura istituzionale) ---
+    header_data = [
+        [
+            Paragraph("DRIVE SCORING &bull; REPORT DI AFFIDABILITÀ", title_style),
+            Paragraph(f"<b>ID PRATICA:</b> DS-{math.prod([oggi.day, oggi.month])}<br/><b>DATA:</b> {oggi.strftime('%d/%m/%Y')}", meta_style)
+        ]
+    ]
+    header_table = Table(header_data, colWidths=[360, 180])
+    header_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), c_primary),
+        ('PADDING', (0,0), (-1,-1), 18),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (1,0), (1,0), 'RIGHT')
+    ]))
+    story.append(header_table)
+    story.append(Spacer(1, 15))
+    
+    # --- BLOCK 2: IL BADGE DI VALUTAZIONE (Pannello Principale) ---
+    esito_badge_text = f"<font size=14 color='{color_esito.hexval()}'><b>{esito}</b></font>"
+    score_badge_text = f"<font size=16 color='{c_primary.hexval()}'><b>{punteggio_finale}</b></font><font size=11 color='{c_muted.hexval()}'> / 100</font>"
+    
+    badge_data = [
+        [Paragraph("<b>ESITO PRE-SCORING AUTOMATICO</b>", label_style), Paragraph("<b>INDICE DI SOLVIBILITÀ CORRENTE</b>", label_style)],
+        [Paragraph(esito_badge_text, value_style), Paragraph(score_badge_text, value_style)]
+    ]
+    badge_table = Table(badge_data, colWidths=[270, 270])
+    badge_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), c_bg_light),
+        ('BOX', (0,0), (-1,-1), 1, c_border),
+        ('PADDING', (0,0), (-1,-1), 14),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('LINEBELOW', (0,0), (-1,0), 0.5, c_border),
+        ('BACKGROUND', (0,1), (0,1), color_esito_bg),
+    ]))
+    story.append(badge_table)
+    
+    # --- BLOCK 3: DETTAGLI DI SINTESI (Tabella Dati Input Elegante) ---
+    story.append(Paragraph("PARAMETRI FINANZIARI VALUTATI", section_style))
+    
+    tech_data = [
+        [Paragraph("Profilo del Richiedente", label_style), Paragraph(target_profile.replace('_',' ').upper(), value_style)],
+        [Paragraph("Tipologia Soluzione Richiesta", label_style), Paragraph(product_type.upper(), value_style)],
+        [Paragraph("Reddito Netto Mensile Dichiarato", label_style), Paragraph(f"{net_monthly_income:,.2f} €".replace(",", "."), value_style)],
+        [Paragraph("Certificazione Documentale Coerente", label_style), Paragraph(f"<font color='#059669'><b>{ocr_log_status}</b></font>", value_style)]
+    ]
+    tech_table = Table(tech_data, colWidths=[240, 300])
+    tech_table.setStyle(TableStyle([
+        ('PADDING', (0,0), (-1,-1), 10),
+        ('LINEBELOW', (0,0), (-1,-1), 0.5, c_border),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('BACKGROUND', (0,0), (-1,0), c_bg_light),
+        ('BACKGROUND', (0,2), (-1,2), c_bg_light),
+    ]))
+    story.append(tech_table)
+    
+    # --- BLOCK 4: NOTIFICHE ED EVIDENZE DI RISCHIO ---
+    story.append(Paragraph("DETTAGLI ED EVIDENZE DI VERIFICA", section_style))
+    evidence_box_content = []
+    
     if motivi:
         for m in motivi:
-            story.append(Paragraph(f"• {m}", body_style))
+            evidence_box_content.append([Paragraph(f"<font color='#ef4444'>&#9632;</font> {m}", evidence_style)])
     else:
-        story.append(Paragraph("• Nessuna criticità finanziaria rilevata. Profilo solido.", body_style))
+        evidence_box_content.append([Paragraph("<font color='#10b981'>&#9632;</font> <b>Nessuna anomalia riscontrata:</b> Il profilo analizzato soddisfa pienamente i requisiti minimi algoritmici di stabilità economico-finanziaria.", evidence_style)])
         
-    story.append(Spacer(1, 30))
-    story.append(Paragraph(f"<b>Nota Legale GDPR & Trasparenza:</b> {DISCLAIMER_TEXT}", ParagraphStyle('Disc', parent=body_style, fontSize=8, textColor=colors.HexColor("#94a3b8"))))
+    evidence_table = Table(evidence_box_content, colWidths=[540])
+    evidence_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), c_bg_light),
+        ('BOX', (0,0), (-1,-1), 0.5, c_border),
+        ('PADDING', (0,0), (-1,-1), 12),
+    ]))
+    story.append(evidence_table)
+    
+    # --- BLOCK 5: FOOTER LEGALE ---
+    story.append(Spacer(1, 40))
+    legal_style = ParagraphStyle(
+        'PremiumLegal', parent=styles['Normal'], 
+        fontName='Helvetica-Oblique', fontSize=7.5, 
+        textColor=colors.HexColor("#94a3b8"), leading=11
+    )
+    story.append(Paragraph(f"<b>Nota di Trasparenza Legale:</b> {DISCLAIMER_TEXT}", legal_style))
     
     doc.build(story)
     buffer.seek(0)
     
-    return StreamingResponse(buffer, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename=Report_Scoring_{oggi}.pdf"})
+    return StreamingResponse(
+        buffer, 
+        media_type="application/pdf", 
+        headers={"Content-Disposition": f"attachment; filename=Report_Scoring_Premium_{oggi}.pdf"}
+    )
