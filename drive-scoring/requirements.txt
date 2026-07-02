@@ -5,3 +5,4 @@ pydantic
 weasyprint
 psycopg2-binary
 xhtml2pdf
+python-multipart
