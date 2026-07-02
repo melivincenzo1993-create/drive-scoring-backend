@@ -1,6 +1,5 @@
 from fastapi import FastAPI, Form
 from fastapi.responses import StreamingResponse, HTMLResponse
-from pdf_generator import create_premium_pdf
 import uvicorn
 
 app = FastAPI()
