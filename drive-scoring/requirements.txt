@@ -1,5 +1,6 @@
 fastapi
 uvicorn
-weasyprint
-gunicorn
-python-multipart
+multipart
+reportlab==4.1.0
+pytesseract==0.3.10
+pillow==10.2.0
