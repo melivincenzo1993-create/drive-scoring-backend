@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import HTMLResponse
 from datetime import date
+from typing import Literal
 
 app = FastAPI(
     title="Drive Scoring API",
@@ -44,15 +45,14 @@ def home():
                     <label>Email Utente</label>
                     <input type="email" name="user_email" required placeholder="esempio@email.com">
                 </div>
-                
-                <div class="form-group">
-                    <label>Profilo Destinazione</label>
-                    <input type="text" name="target_profile" required placeholder="Es. Standard, Premium">
-                </div>
 
                 <div class="form-group">
                     <label>Tipologia Prodotto</label>
-                    <input type="text" name="product_type" required placeholder="Es. Finanziamento Auto">
+                    <select name="product_type" required>
+                        <option value="finanziamento">Finanziamento</option>
+                        <option value="leasing">Leasing</option>
+                        <option value="NLT">NLT (Noleggio a Lungo Termine)</option>
+                    </select>
                 </div>
 
                 <div class="form-group">
@@ -90,12 +90,10 @@ def home():
 
                 <div class="form-group">
                     <label>Tipo di Contratto di Lavoro</label>
-                    <input type="text" name="contract_type" required placeholder="Es. indeterminato, determinato">
-                </div>
-
-                <div class="form-group">
-                    <label>Data Inizio Impiego</label>
-                    <input type="date" name="employment_start_date" required>
+                    <select name="contract_type" required>
+                        <option value="indeterminato">Tempo Indeterminato</option>
+                        <option value="determinato">Tempo Determinato</option>
+                    </select>
                 </div>
 
                 <div class="form-group">
@@ -127,16 +125,14 @@ def home():
 @app.post("/score/privato")
 async def score_privato(
     user_email: str = Form(...),
-    target_profile: str = Form(...),
-    product_type: str = Form(...),
+    product_type: Literal["finanziamento", "leasing", "NLT"] = Form(...),
     contract_duration_months: int = Form(...),
     estimated_monthly_rate: float = Form(...),
     initial_down_payment: float = Form(...),
     current_monthly_debts: float = Form(...),
     has_credit_issues: bool = Form(...),
     birth_date: date = Form(...),
-    contract_type: str = Form(...),
-    employment_start_date: date = Form(...),
+    contract_type: Literal["indeterminato", "determinato"] = Form(...),
     employer_sector: str = Form(...),
     net_monthly_income: float = Form(...),
     documento_reddito: UploadFile = File(...)
@@ -158,9 +154,9 @@ async def score_privato(
         punteggio -= 40
         motivi_penalizzazione.append("Presenza di segnalazioni o insolvenze creditizie.")
         
-    if "indeterminato" not in contract_type.lower():
+    if contract_type == "determinato":
         punteggio -= 20
-        motivi_penalizzazione.append("Contratto di lavoro non a tempo indeterminato.")
+        motivi_penalizzazione.append("Contratto di lavoro a tempo determinato.")
         
     impegno_mensile_totale = estimated_monthly_rate + current_monthly_debts
     rapporto_indebitamento = impegno_mensile_totale / net_monthly_income if net_monthly_income > 0 else 1
@@ -187,6 +183,8 @@ async def score_privato(
     return {
         "status": "success",
         "user_email": user_email,
+        "product_type": product_type,
+        "contract_type": contract_type,
         "indice_solvibilita": f"{punteggio_finale}/100",
         "esito_pratica": esito,
         "documento_ricevuto": nome_documento,
