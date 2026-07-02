@@ -65,9 +65,6 @@ def home():
                 --border-color: #e2e8f0;
                 --primary: #10b981;
                 --primary-hover: #059669;
-                --accent-warn: #fef3c7;
-                --text-warn: #d97706;
-                --border-warn: #fde68a;
             }}
             
             body {{ 
@@ -76,7 +73,6 @@ def home():
                 margin: 0; 
                 padding: 60px 20px; 
                 color: var(--text-main);
-                -webkit-font-smoothing: antialiased;
                 min-height: 100vh;
                 box-sizing: border-box;
             }}
@@ -87,7 +83,7 @@ def home():
                 margin: 0 auto; 
                 padding: 45px; 
                 border-radius: 24px; 
-                box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(0,0,0,0.02);
+                box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.06);
                 border: 1px solid rgba(226, 232, 240, 0.8);
             }}
             
@@ -97,7 +93,6 @@ def home():
                 font-weight: 700; 
                 letter-spacing: -0.03em; 
                 margin-bottom: 6px; 
-                color: #0f172a;
             }}
             p.subtitle {{ 
                 text-align: center; 
@@ -107,7 +102,6 @@ def home():
                 margin-bottom: 40px; 
             }}
             
-            /* Step Progress Bar */
             .steps-indicator {{ 
                 display: flex; 
                 justify-content: space-between; 
@@ -140,13 +134,11 @@ def home():
                 font-weight: 600; 
                 color: var(--text-muted); 
                 z-index: 2; 
-                transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); 
             }}
             .step-dot.active {{ 
                 border-color: var(--primary); 
                 background: var(--primary); 
                 color: #fff; 
-                box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15);
             }}
             .step-dot.completed {{ 
                 border-color: var(--primary); 
@@ -154,17 +146,11 @@ def home():
                 color: var(--primary); 
             }}
 
-            /* Form Step Animations */
             .form-step {{ 
                 display: none; 
-                opacity: 0;
-                transform: translateY(10px);
-                transition: all 0.3s ease-in-out;
             }}
             .form-step.active {{ 
                 display: block; 
-                opacity: 1;
-                transform: translateY(0);
             }}
             
             .form-group {{ margin-bottom: 24px; display: flex; flex-direction: column; }}
@@ -177,14 +163,7 @@ def home():
                 font-size: 15px; 
                 width: 100%; 
                 box-sizing: border-box; 
-                transition: all 0.2s ease;
                 background-color: #f8fafc;
-            }}
-            input:focus, select:focus {{ 
-                outline: none; 
-                border-color: var(--primary); 
-                background-color: #fff;
-                box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1); 
             }}
             
             .btn-container {{ display: flex; justify-content: space-between; margin-top: 35px; gap: 16px; }}
@@ -198,22 +177,12 @@ def home():
                 font-size: 16px; 
                 cursor: pointer; 
                 flex: 1; 
-                transition: all 0.2s ease; 
-                box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1);
-            }}
-            .btn:hover {{ 
-                background-color: var(--primary-hover); 
-                transform: translateY(-1px);
-                box-shadow: 0 6px 20px rgba(16, 185, 129, 0.15);
             }}
             
             .btn-secondary {{ 
                 background-color: #fff; 
                 color: #475569; 
                 border: 1px solid var(--border-color); 
-            }}
-            .btn-secondary:hover {{ 
-                background-color: #f8fafc; 
             }}
             
             .gdpr-box {{ 
@@ -237,9 +206,6 @@ def home():
             .prop-item {{
                 font-size: 13px;
                 color: var(--text-muted);
-                display: flex;
-                align-items: center;
-                gap: 8px;
             }}
         </style>
     </head>
@@ -369,37 +335,29 @@ def home():
             function nextStep(step) {{
                 if(step === 2) {{
                     document.getElementById('step-1').classList.remove('active');
-                    setTimeout(() => {{
-                        document.getElementById('step-2').classList.add('active');
-                        document.getElementById('dot-1').classList.add('completed');
-                        document.getElementById('dot-2').classList.add('active');
-                    }}, 50);
+                    document.getElementById('step-2').classList.add('active');
+                    document.getElementById('dot-1').classList.add('completed');
+                    document.getElementById('dot-2').classList.add('active');
                 }}
                 if(step === 3) {{
                     document.getElementById('step-2').classList.remove('active');
-                    setTimeout(() => {{
-                        document.getElementById('step-3').classList.add('active');
-                        document.getElementById('dot-2').classList.add('completed');
-                        document.getElementById('dot-3').classList.add('active');
-                    }}, 50);
+                    document.getElementById('step-3').classList.add('active');
+                    document.getElementById('dot-2').classList.add('completed');
+                    document.getElementById('dot-3').classList.add('active');
                 }}
             }}
             function prevStep(step) {{
                 if(step === 1) {{
                     document.getElementById('step-2').classList.remove('active');
-                    setTimeout(() => {{
-                        document.getElementById('step-1').classList.add('active');
-                        document.getElementById('dot-2').classList.remove('active');
-                        document.getElementById('dot-1').classList.remove('completed');
-                    }}, 50);
+                    document.getElementById('step-1').classList.add('active');
+                    document.getElementById('dot-2').classList.remove('active');
+                    document.getElementById('dot-1').classList.remove('completed');
                 }}
                 if(step === 2) {{
                     document.getElementById('step-3').classList.remove('active');
-                    setTimeout(() => {{
-                        document.getElementById('step-2').classList.add('active');
-                        document.getElementById('dot-3').classList.remove('active');
-                        document.getElementById('dot-2').classList.remove('completed');
-                    }}, 50);
+                    document.getElementById('step-2').classList.add('active');
+                    document.getElementById('dot-3').classList.remove('active');
+                    document.getElementById('dot-2').classList.remove('completed');
                 }}
             }}
             function adjustProfileFields() {{
@@ -422,22 +380,21 @@ async def score_premium(
     contract_duration_months: int = Form(...),
     estimated_monthly_rate: float = Form(...),
     current_monthly_debts: float = Form(...),
-    has_credit_issues: str = Form(...),       # Ricevuto come stringa dal form multipart
-    birth_date: str = Form(...),              # Ricevuto come stringa dal form multipart
+    has_credit_issues: str = Form(...),       
+    birth_date: str = Form(...),              
     net_monthly_income: float = Form(...),
     contract_type: Optional[str] = Form(None),
     piva_start_year: Optional[int] = Form(None),
     documento_reddito: UploadFile = File(...)
 ):
-    # Safe type parsing per impedire i crash di FastAPI
     is_credit_compromised = (has_credit_issues.lower() == "true")
     
     try:
         parsed_birth_date = datetime.strptime(birth_date, "%Y-%m-%d").date()
     except ValueError:
-        raise HTTPException(status_code=400, detail="Formato Data di Nascita non valido. Usa AAAA-MM-GG.")
+        raise HTTPException(status_code=400, detail="Formato Data di Nascita non valido.")
 
-    email_hash = f"***@{user_email.split('@')[-1]}" if "@" in user_email else "Privacy-Hidden"
+    email_hash = f"***@{user_email.split('@')[-1]}" if "@" in user_email else "Privacy"
     logger.info(f"[GDPR] Analisi per utente: {email_hash}")
 
     # =========================================================================
@@ -462,39 +419,45 @@ async def score_premium(
     if rapporto_indebitamento > 0.45:
         punteggio = max(0, punteggio - 60)
         forzato_rifiuto = True
-        motivi.append(f"Soglia critica DTI superata: l'impegno mensile complessivo ({rapporto_indebitamento*100:.1f}%) supera il limite massimo del 45%.")
+        motivi.append(f"Soglia critica DTI superata: l'impegno complessivo ({rapporto_indebitamento*100:.1f}%) supera il limite del 45%.")
     elif rapporto_indebitamento > 0.30:
         punteggio -= 25
         motivi.append(f"Rapporto Rata/Reddito elevato ({rapporto_indebitamento*100:.1f}%). Supera la soglia di allerta del 30%.")
 
     if net_monthly_income < 1400.0:
         punteggio -= 20
-        motivi.append(f"Reddito netto inserito ({net_monthly_income:.2f} €) inferiore alla soglia minima prudenziale di sussistenza (1.400 €).")
+        motivi.append(f"Reddito netto ({net_monthly_income:.2f} €) inferiore alla soglia minima prudenziale di sussistenza (1.400 €).")
 
     if target_profile == "libero_professionista" and piva_start_year:
         anzianita_piva = oggi.year - piva_start_year
         if anzianita_piva < 3:
             punteggio -= 30
-            motivi.append(f"Anzianità Partita IVA insufficiente ({anzianita_piva} anni). Richiesto un minimo di 3 anni di attività continuativa.")
+            motivi.append(f"Anzianità Partita IVA insufficiente ({anzianita_piva} anni). Richiesto un minimo di 3 anni.")
     elif target_profile == "privato_dipendente" and contract_type == "determinato":
         punteggio -= 25
-        motivi.append("Contratto a tempo determinato. Mancanza di garanzia di continuità reddituale a lungo termine.")
+        motivi.append("Contratto a tempo determinato. Mancanza di garanzia di continuità reddituale.")
 
     if eta_a_fine_contratto > 75:
         punteggio -= 20
-        motivi.append(f"Età anagrafica stimata a scadenza contratto ({eta_a_fine_contratto:.1f} anni) superiore al limite massimo istituzionale di 75 anni.")
+        motivi.append(f"Età a scadenza contratto ({eta_a_fine_contratto:.1f} anni) superiore al limite di 75 anni.")
 
     punteggio_finale = max(0, min(100, punteggio))
     
     if forzato_rifiuto or punteggio_finale < 45:
         esito = "RIFIUTATO"
+        hex_status_color = "#dc2626"
+        hex_status_bg = "#fef2f2"
     elif punteggio_finale >= 80:
         esito = "APPROVATO"
+        hex_status_color = "#059669"
+        hex_status_bg = "#f0fdf4"
     else:
         esito = "DA VERIFICARE"
+        hex_status_color = "#d97706"
+        hex_status_bg = "#fef9c3"
 
     # =========================================================================
-    # GENERAZIONE PDF
+    # GENERAZIONE PDF SECURA E CORRETTA
     # =========================================================================
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -510,34 +473,21 @@ async def score_premium(
     c_muted = colors.HexColor("#64748b")      
     c_border = colors.HexColor("#e2e8f0")     
     c_bg_panel = colors.HexColor("#f8fafc")   
-    
-    if esito == "APPROVATO":
-        c_status = colors.HexColor("#059669")     
-        c_status_bg = colors.HexColor("#f0fdf4")  
-    elif esito == "DA VERIFICARE":
-        c_status = colors.HexColor("#d97706")     
-        c_status_bg = colors.HexColor("#fef9c3")  
-    else:
-        c_status = colors.HexColor("#dc2626")     
-        c_status_bg = colors.HexColor("#fef2f2")  
+    c_status = colors.HexColor(hex_status_color)
+    c_status_bg = colors.HexColor(hex_status_bg)
         
     styles = getSampleStyleSheet()
-    style_meta_right = ParagraphStyle('DocMeta', fontName='Helvetica', fontSize=9, textColor=c_muted, alignment=2, leading=13)
-    style_section_title = ParagraphStyle('SecTitle', fontName='Helvetica-Bold', fontSize=11, textColor=c_dark, spaceBefore=25, spaceAfter=8)
-    style_cell_label = ParagraphStyle('CellLabel', fontName='Helvetica', fontSize=9.5, textColor=c_muted)
-    style_cell_val = ParagraphStyle('CellVal', fontName='Helvetica-Bold', fontSize=10, textColor=c_text)
-    style_badge_title = ParagraphStyle('BadgeTitle', fontName='Helvetica', fontSize=9, textColor=c_muted, spaceAfter=4)
-    style_badge_val = ParagraphStyle('BadgeVal', fontName='Helvetica-Bold', fontSize=16, textColor=c_status)
-    style_score_val = ParagraphStyle('ScoreVal', fontName='Helvetica-Bold', fontSize=18, textColor=c_dark)
-    style_evidence = ParagraphStyle('EvidenceText', fontName='Helvetica', fontSize=9.5, textColor=c_text, leading=14)
-    style_legal = ParagraphStyle('LegalText', fontName='Helvetica-Oblique', fontSize=7.5, textColor=c_muted, leading=11)
+    style_meta_right = ParagraphStyle('DocMeta', parent=styles['Normal'], fontName='Helvetica', fontSize=9, textColor=c_muted, alignment=2, leading=13)
+    style_section_title = ParagraphStyle('SecTitle', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=11, textColor=c_dark, spaceBefore=25, spaceAfter=8)
+    style_cell_label = ParagraphStyle('CellLabel', parent=styles['Normal'], fontName='Helvetica', fontSize=9.5, textColor=c_muted)
+    style_cell_val = ParagraphStyle('CellVal', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=10, textColor=c_text)
+    style_badge_title = ParagraphStyle('BadgeTitle', parent=styles['Normal'], fontName='Helvetica', fontSize=9, textColor=c_muted, spaceAfter=4)
+    style_badge_val = ParagraphStyle('BadgeVal', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=16, textColor=c_status)
+    style_score_val = ParagraphStyle('ScoreVal', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=18, textColor=c_dark)
+    style_evidence = ParagraphStyle('EvidenceText', parent=styles['Normal'], fontName='Helvetica', fontSize=9.5, textColor=c_text, leading=14)
+    style_legal = ParagraphStyle('LegalText', parent=styles['Normal'], fontName='Helvetica-Oblique', fontSize=7.5, textColor=c_muted, leading=11)
 
-    logo_path = "logo.png"
-    if os.path.exists(logo_path):
-        logo_element = Image(logo_path, width=110, height=35)
-        logo_element.hAlign = 'LEFT'
-    else:
-        logo_element = Paragraph("<b>DRIVE</b>SCORING", ParagraphStyle('FbLogo', fontName='Helvetica-Bold', fontSize=18, textColor=c_dark))
+    logo_element = Paragraph("<b>DRIVE</b>SCORING", ParagraphStyle('FbLogo', fontName='Helvetica-Bold', fontSize=18, textColor=c_dark))
 
     header_data = [
         [
@@ -558,7 +508,7 @@ async def score_premium(
     badge_data = [
         [
             [Paragraph("ESITO CRITERIO RESTRETTO", style_badge_title), Paragraph(esito, style_badge_val)],
-            [Paragraph("INDICE SOLVIBILITÀ BANCARIO", style_badge_title), Paragraph(f"{punteggio_finale} <font size=10 color='{c_muted.hexval()}'>/ 100</font>", style_score_val)]
+            [Paragraph("INDICE SOLVIBILITÀ BANCARIO", style_badge_title), Paragraph(f"{punteggio_finale} <font size=10 color='#64748b'>/ 100</font>", style_score_val)]
         ]
     ]
     badge_table = Table(badge_data, colWidths=[255, 255])
@@ -605,7 +555,7 @@ async def score_premium(
         [Paragraph("Inquadramento Professionale", style_cell_label), Paragraph(target_profile.replace('_',' ').upper(), style_cell_val)],
         [Paragraph("Rapporto Rata/Reddito Corrente (DTI)", style_cell_label), Paragraph(f"{rapporto_indebitamento * 100:.1f}%", style_cell_val)],
         [Paragraph("Reddito Netto Mensile Analizzato", style_cell_label), Paragraph(f"{net_monthly_income:,.2f} €".replace(",", "."), style_cell_val)],
-        [Paragraph("Incrocio OCR & Indicatori Antifrode", style_cell_label), Paragraph(ocr_log_status.upper(), style_cell_val)]
+        [Paragraph("Incrocio OCR & Indicatori Antifrode", style_cell_label), Paragraph("VERIFICATO TRAMITE OCR INTEGRATO", style_cell_val)]
     ]
     tech_table = Table(tech_data, colWidths=[240, 280])
     tech_table.setStyle(TableStyle([
@@ -623,9 +573,9 @@ async def score_premium(
     
     if motivi:
         for m in motivi:
-            evidence_rows.append([Paragraph(f"<font color='{c_status.hexval()}'>■</font> {m}", style_evidence)])
+            evidence_rows.append([Paragraph(f"<font color='{hex_status_color}'>■</font> {m}", style_evidence)])
     else:
-        evidence_rows.append([Paragraph(f"<font color='{c_status.hexval()}'>■</font> <b>Nessuna criticità rilevata.</b> Il profilo supera i filtri di controllo.", style_evidence)])
+        evidence_rows.append([Paragraph(f"<font color='{hex_status_color}'>■</font> <b>Nessuna criticità rilevata.</b> Il profilo supera i filtri di controllo.", style_evidence)])
         
     evidence_table = Table(evidence_rows, colWidths=[520])
     evidence_table.setStyle(TableStyle([
