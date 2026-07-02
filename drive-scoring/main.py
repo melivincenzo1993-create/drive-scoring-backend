@@ -1,4 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi.responses import HTMLResponse
 from datetime import date
 
 app = FastAPI(
@@ -7,9 +8,82 @@ app = FastAPI(
     version="1.0.0"
 )
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 def home():
-    return {"message": "Backend online! Vai su /docs per testare l'API."}
+    return """
+    <!DOCTYPE html>
+    <html lang="it">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Drive Scoring - Verifica Solvibilità</title>
+        <style>
+            body { 
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                background-color: #f4f7f6; 
+                margin: 0; 
+                padding: 0; 
+                display: flex; 
+                justify-content: center; 
+                align-items: center; 
+                min-height: 100vh; 
+            }
+            .container { 
+                background: white; 
+                padding: 40px; 
+                border-radius: 12px; 
+                box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
+                text-align: center; 
+                max-width: 500px; 
+                width: 100%; 
+            }
+            h1 { 
+                color: #2c3e50; 
+                margin-bottom: 10px; 
+            }
+            p { 
+                color: #7f8c8d; 
+                font-size: 16px; 
+                margin-bottom: 30px; 
+                line-height: 1.5;
+            }
+            .btn { 
+                display: inline-block; 
+                background-color: #2ecc71; 
+                color: white; 
+                padding: 14px 28px; 
+                text-decoration: none; 
+                border-radius: 6px; 
+                font-weight: bold; 
+                font-size: 16px;
+                transition: background 0.2s; 
+                box-shadow: 0 4px 6px rgba(46, 204, 113, 0.2);
+            }
+            .btn:hover { 
+                background-color: #27ae60; 
+            }
+            .footer-link { 
+                margin-top: 25px; 
+                display: block; 
+                color: #95a5a6; 
+                font-size: 13px; 
+                text-decoration: none; 
+            }
+            .footer-link:hover {
+                text-decoration: underline;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Analisi Solvibilità Privati</h1>
+            <p>Benvenuto nella piattaforma di Credit Scoring di Drive Scoring. Valuta l'affidabilità creditizia in pochi istanti e invia i documenti per la verifica.</p>
+            <a href="/docs" class="btn">Apri il Form di Test (Docs)</a>
+            <a href="/docs" class="footer-link">Documentazione API v1.0.0</a>
+        </div>
+    </body>
+    </html>
+    """
 
 @app.post("/score/privato")
 async def score_privato(
@@ -29,7 +103,7 @@ async def score_privato(
     documento_reddito: UploadFile = File(..., description="Carica il documento di reddito (PDF o Immagine)")
 ):
     # 1. Controllo estensione del documento caricato
-    if not documento_reddito.filename.endswith(('.pdf', '.png', '.jpg', '.jpeg')):
+    if not documento_reddito.filename.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')):
         raise HTTPException(
             status_code=400, 
             detail="Formato file non valido. Caricare esclusivamente un file PDF o un'immagine (PNG, JPG)."
@@ -62,7 +136,7 @@ async def score_privato(
         punteggio -= 25
         motivi_penalizzazione.append("Rapporto rata/reddito troppo elevato (superiore al 35%).")
 
-    # Controllo età (es. profili troppo giovani o in età pensionabile avanzata)
+    # Controllo età (es. prof profiles troppo giovani o in età pensionabile avanzata)
     oggi = date.today()
     eta_utente = oggi.year - birth_date.year - ((oggi.month, oggi.day) < (birth_date.month, birth_date.day))
     if eta_utente < 22 or eta_utente > 67:
