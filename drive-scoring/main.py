@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import HTMLResponse
 from datetime import date
-from typing import Literal
+from typing import Literal, Optional
 
 app = FastAPI(
     title="Drive Scoring API",
@@ -29,6 +29,7 @@ def home():
                 padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; width: 100%; box-sizing: border-box;
             }
             input[type="file"] { padding: 5px 0; }
+            .optional-text { font-weight: normal; color: #7f8c8d; font-size: 12px; }
             .btn { background-color: #2ecc71; color: white; padding: 14px; border: none; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; width: 100%; margin-top: 10px; transition: background 0.2s; }
             .btn:hover { background-color: #27ae60; }
             .footer { text-align: center; margin-top: 20px; font-size: 13px; }
@@ -38,7 +39,7 @@ def home():
     <body>
         <div class="container">
             <h1>Analisi Solvibilità Privati</h1>
-            <p class="subtitle">Inserisci i dati richiesti e carica il documento di reddito per calcolare istantaneamente lo score finanziario.</p>
+            <p class="subtitle">Inserisci i dati richiesti per calcolare istantaneamente lo score finanziario.</p>
             
             <form action="/score/privato" method="POST" enctype="multipart/form-data">
                 <div class="form-group">
@@ -107,8 +108,8 @@ def home():
                 </div>
 
                 <div class="form-group">
-                    <label>Documento di Reddito (Busta paga / CUD - PDF o Immagine)</label>
-                    <input type="file" name="documento_reddito" required accept=".pdf, .png, .jpg, .jpeg">
+                    <label>Documento di Reddito <span class="optional-text">(Opzionale - Busta paga / CUD)</span></label>
+                    <input type="file" name="documento_reddito" accept=".pdf, .png, .jpg, .jpeg">
                 </div>
 
                 <button type="submit" class="btn">Calcola Score Solvibilità</button>
@@ -135,16 +136,19 @@ async def score_privato(
     contract_type: Literal["indeterminato", "determinato"] = Form(...),
     employer_sector: str = Form(...),
     net_monthly_income: float = Form(...),
-    documento_reddito: UploadFile = File(...)
+    documento_reddito: Optional[UploadFile] = File(None) # <-- Reso opzionale (None di default)
 ):
-    if not documento_reddito.filename.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')):
-        raise HTTPException(
-            status_code=400, 
-            detail="Formato file non valido. Caricare esclusivamente un file PDF o un'immagine (PNG, JPG)."
-        )
+    nome_documento = "Non caricato"
 
-    contenuto_file = await documento_reddito.read()
-    nome_documento = documento_reddito.filename
+    # Se l'utente decide di caricare un file, effettuiamo i controlli sul formato
+    if documento_reddito and documento_reddito.filename:
+        if not documento_reddito.filename.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg')):
+            raise HTTPException(
+                status_code=400, 
+                detail="Formato file non valido. Caricare esclusivamente un file PDF o un'immagine (PNG, JPG)."
+            )
+        contenuto_file = await documento_reddito.read()
+        nome_documento = documento_reddito.filename
 
     # Algoritmo di Credit Scoring
     punteggio = 100
