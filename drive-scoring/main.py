@@ -268,33 +268,83 @@ async def score_premium(
     email_hash = f"***@{user_email.split('@')[-1]}" if "@" in user_email else "Privacy-Hidden"
     logger.info(f"[GDPR COMPLIANT] Elaborazione Pay-Per-Use per utente: {email_hash} - Profilo: {target_profile}")
 
-    # 2. SIMULAZIONE ANALISI OCR AVANZATA
+    # 2. SIMULAZIONE ANALISI OCR
     ocr_log_status = "Verificato tramite OCR algoritmo integrato"
 
-    # 3. LOGICA DI CALCOLO SCORE
-    punteggio = 90
+    # =========================================================================
+    # LOGICA DI SCORING FINANZIARIO RIGIDO
+    # =========================================================================
+    punteggio = 100
     motivi = []
     
-    oggi = date.today()
-    eta = oggi.year - birth_date.year - ((oggi.month, oggi.day) < (birth_date.month, birth_date.day))
+    impegni_totali_mensili = estimated_monthly_rate + current_monthly_debts
+    reddito_residuo = net_monthly_income - impegni_totali_mensili
     
-    if net_monthly_income < 1200:
-        punteggio -= 15
-        motivi.append("Reddito netto mensile inferiore alla soglia di sicurezza.")
-    if has_credit_issues:
-        punteggio -= 40
-        motivi.append("Presenza di segnalazioni negative database creditizio (CRIF).")
-        
-    if target_profile == "libero_professionista" and piva_start_year:
-        anzianita = oggi.year - piva_start_year
-        if anzianita < 2:
-            punteggio -= 35
-            motivi.append(f"Partita IVA troppo recente ({anzianita} anni). Rischio startup elevato.")
-    
-    punteggio_finale = max(0, min(100, punteggio))
-    esito = "APPROVATO" if punteggio_finale >= 75 else "DA VERIFICARE" if punteggio_finale >= 50 else "RIFIUTATO"
+    # 1. RAPPORTO RATA/REDDITO (DTI)
+    rapporto_rata_reddito = (impegni_totali_mensili / net_monthly_income) * 100 if net_monthly_income > 0 else 100
+    if rapporto_rata_reddito > 45:
+        punteggio -= 50
+        motivi.append(f"Rapporto Rata/Reddito critico ({rapporto_rata_reddito:.1f}%). Supera il limite massimo del 45%.")
+    elif rapporto_rata_reddito > 35:
+        punteggio -= 25
+        motivi.append(f"Rapporto Rata/Reddito elevato ({rapporto_rata_reddito:.1f}%). Supera la soglia prudenziale del 35%.")
 
-    # 4. GENERAZIONE PDF ELEGANTE CON REPORTLAB
+    # 2. SOGLIA DI REDDITO RESIDUO MINIMO (Sussistenza)
+    soglia_sussistenza = 850.0
+    if reddito_residuo < soglia_sussistenza:
+        punteggio -= 40
+        motivi.append(f"Reddito residuo insufficiente ({reddito_residuo:.2f} €). Inferiore alla soglia minima di sussistenza di {soglia_sussistenza} €.")
+
+    # 3. VERIFICA RIGIDA PREGIUDIZIEVOLI (CRIF)
+    if has_credit_issues:
+        punteggio -= 60
+        motivi.append("Presenza di segnalazioni pregiudizievoli o ritardi nei pagamenti nei database creditizi (CRIF).")
+
+    # 4. CRITERI DI STABILITÀ SPECIFICI
+    oggi = date.today()
+    
+    if target_profile == "libero_professionista":
+        if piva_start_year:
+            anzianita_piva = oggi.year - piva_start_year
+            if anzianita_piva < 2:
+                punteggio -= 35
+                motivi.append(f"Anzianità Partita IVA insufficiente ({anzianita_piva} anni). Richiesti minimo 2 anni completi.")
+            elif anzianita_piva < 4:
+                punteggio -= 10
+                motivi.append(f"Anzianità Partita IVA moderata ({anzianita_piva} anni). Profilo sotto osservazione.")
+        else:
+            punteggio -= 20
+            motivi.append("Anno di inizio attività non valorizzato.")
+            
+    elif target_profile == "privato_dipendente":
+        if contract_type == "determinato":
+            punteggio -= 30
+            motivi.append("Contratto a Tempo Determinato. Mancanza di garanzia di continuità reddituale.")
+            if contract_duration_months > 24:
+                punteggio -= 15
+                motivi.append(f"La durata contrattuale richiesta ({contract_duration_months} mesi) eccede la stabilità del lavoro determinato.")
+
+    elif target_profile == "pensionato":
+        eta_attuale = oggi.year - birth_date.year - ((oggi.month, oggi.day) < (birth_date.month, birth_date.day))
+        durata_anni = math.ceil(contract_duration_months / 12)
+        eta_fine_contratto = eta_attuale + durata_anni
+        if eta_fine_contratto > 78:
+            punteggio -= 40
+            motivi.append(f"Età a fine ammortamento elevata ({eta_fine_contratto} anni). Limite massimo di 78 anni superato.")
+
+    punteggio_finale = max(0, min(100, punteggio))
+    
+    # FASCE DI ESITO RIGIDE
+    if punteggio_finale >= 80:
+        esito = "APPROVATO"
+    elif punteggio_finale >= 60:
+        esito = "DA VERIFICARE"
+    else:
+        esito = "RIFIUTATO"
+
+    # =========================================================================
+    # GENERAZIONE PDF CON REPORTLAB
+    # =========================================================================
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
     story = []
@@ -305,12 +355,10 @@ async def score_premium(
     section_title = ParagraphStyle('SecTitle', parent=styles['Heading2'], fontName='Helvetica-Bold', fontSize=14, textColor=colors.HexColor("#1e293b"), spaceBefore=15, spaceAfter=10)
     body_style = ParagraphStyle('Body', parent=styles['Normal'], fontName='Helvetica', fontSize=10, textColor=colors.HexColor("#334155"), leading=14)
     
-    # Intestazione
     story.append(Paragraph("DRIVE SCORING - REPORT UFFICIALE", title_style))
     story.append(Paragraph(f"Generato il: {oggi.strftime('%d/%m/%Y')} | Identificativo Pratica Anonimizzato: DS-{math.prod([oggi.day, oggi.month])}", subtitle_style))
     story.append(Spacer(1, 10))
     
-    # Tabella Score ad alto impatto visivo
     score_color = "#10b981" if esito == "APPROVATO" else "#f59e0b" if esito == "DA VERIFICARE" else "#ef4444"
     data_score = [
         [Paragraph("<b>ESITO FINALE PRE-SCORING</b>", body_style), Paragraph(f"<b><font color='{score_color}'>{esito}</font></b>", body_style)],
@@ -326,12 +374,11 @@ async def score_premium(
     story.append(t_score)
     story.append(Spacer(1, 15))
     
-    # Tabella Dati Analizzati
-    story.append(Paragraph("Dati Tecnici di Input (Verifica Coerenza)", section_title))
     data_tecnica = [
         ["Profilo Richiedente", target_profile.replace('_',' ').upper()],
         ["Tipologia Prodotto", product_type.upper()],
         ["Reddito Mensile Dichiarato", f"{net_monthly_income} €"],
+        ["Rapporto Rata/Reddito (DTI)", f"{rapporto_rata_reddito:.1f} %"],
         ["Incrocio OCR Documentale", ocr_log_status]
     ]
     t_tech = Table(data_tecnica, colWidths=[250, 250])
@@ -343,13 +390,12 @@ async def score_premium(
     story.append(t_tech)
     story.append(Spacer(1, 15))
 
-    # Dettagli ed evidenze
     story.append(Paragraph("Evidenze Rilevate dall'Algoritmo", section_title))
     if motivi:
         for m in motivi:
             story.append(Paragraph(f"• {m}", body_style))
     else:
-        story.append(Paragraph("• Nessuna criticità finanziaria rilevata. Profilo solido.", body_style))
+        story.append(Paragraph("• Nessuna criticità finanziaria rilevata. Profilo solido e pienamente sostenibile.", body_style))
         
     story.append(Spacer(1, 30))
     story.append(Paragraph(f"<b>Nota Legale GDPR & Trasparenza:</b> {DISCLAIMER_TEXT}", ParagraphStyle('Disc', parent=body_style, fontSize=8, textColor=colors.HexColor("#94a3b8"))))
