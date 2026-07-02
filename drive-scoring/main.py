@@ -170,7 +170,7 @@ async def score_privato(
     if net_monthly_income >= 3500:
         punteggio += 10
         motivi_analisi.append("Bonus: Profilo ad alto reddito (accesso alla fascia di punteggio massima).")
-    elif net_monthly_income < 1200: # <-- AGGIORNATO DA 1500 A 1200
+    elif net_monthly_income < 1200:
         punteggio -= 15
         motivi_analisi.append("Penalità: Reddito mensile netto inferiore alla soglia minima di sicurezza (sotto i 1200€).")
 
@@ -184,13 +184,20 @@ async def score_privato(
         punteggio -= 20
         motivi_analisi.append("Penalità: Contratto di lavoro a tempo determinato (stabilità lavorativa ridotta).")
         
-    # Criterio: Rapporto indebitamento (Soglia prudenziale del 30%)
-    impegno_mensile_totale = estimated_monthly_rate + current_monthly_debts
-    rapporto_indebitamento = impegno_mensile_totale / net_monthly_income if net_monthly_income > 0 else 1
-    
-    if rapporto_indebitamento > 0.30:
-        punteggio -= 25
-        motivi_analisi.append(f"Penalità: Rapporto rata/reddito troppo elevato ({int(rapporto_indebitamento*100)}%). Supera la soglia prudenziale del 30%.")
+    # Criterio SPECIFICO per Tipologia Prodotto (Finanziamento/Leasing VS NLT)
+    if product_type == "NLT":
+        # Regola ferrea NLT: la singola rata non può superare 1/5 (20%) della busta paga
+        rapporto_quinto = estimated_monthly_rate / net_monthly_income if net_monthly_income > 0 else 1
+        if rapporto_quinto > 0.20:
+            punteggio -= 30
+            motivi_analisi.append(f"Penalità grave NLT: La rata richiesta ({int(rapporto_quinto*100)}%) supera la regola del quinto (1/5) dello stipendio netto.")
+    else:
+        # Regola Finanziamento/Leasing: rapporto indebitamento complessivo (nuova rata + debiti vecchi) sotto il 30%
+        impegno_mensile_totale = estimated_monthly_rate + current_monthly_debts
+        rapporto_indebitamento = impegno_mensile_totale / net_monthly_income if net_monthly_income > 0 else 1
+        if rapporto_indebitamento > 0.30:
+            punteggio -= 25
+            motivi_analisi.append(f"Penalità: Rapporto indebitamento complessivo troppo elevato ({int(rapporto_indebitamento*100)}%). Supera la soglia prudenziale del 30%.")
 
     # Criterio: Anagrafica
     oggi = date.today()
